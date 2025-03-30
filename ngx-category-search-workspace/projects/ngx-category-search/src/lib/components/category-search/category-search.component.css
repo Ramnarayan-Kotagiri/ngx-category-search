@@ -1,0 +1,454 @@
+/* --- category-search.component.css --- */
+
+/* Using :host with ViewEncapsulation.None allows these variables */
+/* to be potentially overridden by global styles if consumer desires */
+:host {
+    /* No fixed width/margin - let container control layout */
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 14px;
+    color: #333;
+
+    /* Define CSS Custom Properties for easier theming by consumers */
+    --ncs-primary-color: #0078d4;
+    /* Azure Blue */
+    --ncs-focus-glow-color: rgba(0, 120, 212, 0.3);
+    --ncs-border-color: #ccc;
+    --ncs-dropdown-bg: #ffffff;
+    --ncs-hover-bg: #f0f0f0;
+    --ncs-chiclet-initial-bg: #e9e9e9;
+    /* Initial/Disabled Chiclet BG */
+    /* --ncs-chiclet-active-bg: #005a9e; */
+    /* Darker Blue for Selected Chiclet */
+    --ncs-chiclet-text-color: #333;
+    /* --ncs-chiclet-active-text-color: #ffffff; */
+    --ncs-text-muted: #666;
+    --ncs-highlight-color: #ffe187;
+    /* Default highlight, though now using bold */
+    --ncs-match-text-color: var(--ncs-primary-color);
+    /* Color for bolded matches */
+    --ncs-separator-color: #e0e0e0;
+    --ncs-error-color: #d9534f;
+    /* Example error color */
+    /* --ncs-chiclet-active-hover-bg: #004578; */
+    /* --ncs-chiclet-search-bg: #87CEEB; */
+    /* Define Sky Blue */
+    /* --ncs-chiclet-search-text-color: #000000; */
+    /* Black */
+    --ncs-chiclet-search-bg: rgba(0, 120, 212, 0.30);  /* Background for non-active search chiclets */
+    --ncs-chiclet-active-bg: rgba(0, 120, 212, 0.78);  /* Background for ACTIVE search chiclet */
+    /* Optional: Define hover colors based on these */
+    --ncs-chiclet-search-hover-bg: rgba(0, 120, 212, 0.45); /* Example: slightly darker/more opaque */
+    --ncs-chiclet-active-hover-bg: rgba(0, 120, 212, 0.90); /* Example: even more opaque */
+  
+    /* --- Text colors might need adjustment for contrast --- */
+    --ncs-chiclet-search-text-color: #000000; /* Example: Darker blue text for better contrast on light blue */
+    --ncs-chiclet-active-text-color: #ffffff; /* White text for the more opaque active background */
+}
+
+.ncs-container {
+    position: relative;
+}
+
+.ncs-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* Default icon style if no template provided */
+.ncs-input-prefix-icon,
+.ncs-input-suffix-icon {
+    /* Add suffix class if needed */
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    left: 12px;
+    font-size: 16px;
+    color: var(--ncs-text-muted);
+    z-index: 2;
+    pointer-events: none;
+    line-height: 1;
+}
+
+.ncs-input-prefix-icon {
+    left: 12px;
+    font-size: 16px;
+    /* Adjust for Unicode */
+}
+
+/* Add styles for suffix icon position if needed */
+/* .ncs-input-suffix-icon { right: 12px; } */
+
+
+.ncs-input {
+    flex-grow: 1;
+    width: 100%;
+    /* Take full width of parent */
+    border: 1px solid var(--ncs-border-color);
+    border-radius: 2px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    /* Adjust padding based on default prefix/suffix usage */
+    padding: 8px 30px 8px 35px;
+    /* Default: Space for prefix icon and clear button */
+    /* Consumers using custom templates might need to adjust padding via CSS */
+}
+
+.ncs-input:focus {
+    border-color: var(--ncs-primary-color);
+    box-shadow: 0 0 0 2px var(--ncs-focus-glow-color);
+}
+
+/* Default Clear Button Style */
+.ncs-clear-button {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    /* --- Ensure consistent size/box-sizing --- */
+    box-sizing: border-box;
+    height: 24px;
+    /* Example height */
+    width: 24px;
+    /* Example width */
+    display: inline-flex;
+    /* Helps center content */
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    /* Remove padding if using fixed size */
+    cursor: pointer;
+    color: var(--ncs-text-muted);
+    z-index: 2;
+}
+
+.ncs-clear-button:hover {
+    color: #000;
+}
+
+.ncs-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    width: 100%;
+    /* Match input width */
+    /* --- Ensure box-sizing --- */
+    box-sizing: border-box;
+    background-color: var(--ncs-dropdown-bg);
+    border: 1px solid var(--ncs-border-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+    z-index: 1000;
+    /* High z-index */
+    max-height: 450px;
+    overflow-y: auto;
+    padding-bottom: 8px;
+}
+
+.ncs-loading-indicator,
+.ncs-no-results,
+.ncs-no-recent {
+    padding: 16px;
+    text-align: center;
+    color: var(--ncs-text-muted);
+}
+
+.ncs-chiclet-container {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    gap: 4px;
+    /* Use gap for spacing */
+}
+
+/* Default Chiclet Button Style */
+.ncs-chiclet {
+    box-sizing: border-box;
+    border: none;
+    border-radius: 16px;
+    padding: 4px 10px;
+    /* margin: 4px; Removed margin, use gap in container */
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+    /* background-color: var(--ncs-chiclet-initial-bg);
+    color: var(--ncs-chiclet-text-color); */
+    line-height: 1.5;
+    /* Ensure text fits vertically */
+    /* --- Default state (will be overridden by :disabled and active search state) --- */
+    background-color: var(--ncs-chiclet-initial-bg);
+    /* Start with initial gray */
+    color: var(--ncs-chiclet-text-color);
+    /* Default text color */
+}
+
+/* Default Chiclet States */
+.ncs-chiclet:disabled {
+    background-color: var(--ncs-chiclet-initial-bg);
+    /* color: var(--ncs-text-muted); Muted text when disabled */
+    color: #555;
+    cursor: not-allowed;
+    opacity: 1;
+    /* Maintain full opacity */
+}
+
+.ncs-chiclet.active {
+    background-color: var(--ncs-chiclet-active-bg);
+    /* Darker blue */
+    color: var(--ncs-chiclet-active-text-color);
+    font-weight: 600;
+}
+
+/* Ensure count in active chiclet inherits bolding or set explicitly if needed */
+.ncs-chiclet.active .ncs-chiclet-count {
+    font-weight: 700;
+    /* Ensure count is bold in active */
+    color: inherit; /* Inherit the darker blue text color */
+}
+
+.ncs-chiclet:not(:disabled):hover {
+    background-color: #d1cfcd;
+    /* Default hover */
+}
+
+.ncs-chiclet:not(:disabled).active:hover {
+    /* filter: brightness(1.2); Example: Slightly brighten active on hover */
+    background-color: var(--ncs-chiclet-active-hover-bg);
+}
+
+/* --- Style for Search Results View (Enabled, Non-Active) --- */
+/* Target chiclets that are NOT disabled and NOT active */
+.ncs-chiclet:not(:disabled):not(.active) {
+    background-color: var(--ncs-chiclet-search-bg);
+    /* Sky Blue */
+    color: var(--ncs-chiclet-search-text-color);
+    /* Black text */
+}
+
+/* Style for the count span within search results chiclets */
+.ncs-chiclet:not(:disabled):not(.active) .ncs-chiclet-count {
+    font-weight: 700;
+    /* Bold count */
+    color: inherit; /* Inherit the darker blue text color */
+}
+
+/* Hover for search results (non-active) */
+.ncs-chiclet:not(:disabled):not(.active):hover {
+    filter: brightness(95%);
+    /* Slightly darken sky blue */
+    /* Or background-color: #76c1e0; */
+}
+
+/* Hover for search results (active) */
+.ncs-chiclet:not(:disabled).active:hover {
+    background-color: var(--ncs-chiclet-active-hover-bg);
+    /* Keep darker blue hover */
+}
+
+.ncs-section {
+    padding: 8px 0;
+}
+
+.ncs-section-heading {
+    /* Applies to Recent Searches heading AND Category heading */
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ncs-text-muted);
+    padding: 8px 16px 4px 16px;
+    margin: 0;
+    display: block;
+    /* Ensure it takes full width */
+}
+
+/* Default Category Header Row Style */
+.ncs-category-header-row {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px 4px 16px;
+    /* Keep padding */
+    gap: 8px;
+    /* border is removed */
+}
+
+.ncs-category-heading {
+    /* Specific style for category headings in results */
+    padding: 0;
+    /* Remove section padding */
+    color: var(--ncs-chiclet-text-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ncs-header-separator {
+    flex-grow: 1;
+    height: 1px;
+    background-color: var(--ncs-separator-color);
+    margin: 0 8px;
+}
+
+.ncs-category-header-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.ncs-recent-list,
+.ncs-result-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Default Item Styles (Recent & Result) */
+.ncs-recent-item,
+.ncs-result-item {
+    display: flex;
+    align-items: center;
+    /* Vertically center items */
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    gap: 10px;
+    /* Adjust gap between icon/id/details */
+    text-decoration: none;
+    color: inherit;
+    min-height: 36px;
+    /* Ensure minimum height */
+    box-sizing: border-box;
+}
+
+.ncs-recent-item:hover,
+.ncs-result-item:hover,
+.ncs-recent-item:focus,
+.ncs-result-item:focus {
+    background-color: var(--ncs-hover-bg);
+    outline: none;
+}
+
+/* Default Result Item Structure Styles */
+.ncs-result-icon {
+    /* Placeholder class if consumer provides icon via template */
+    width: 20px;
+    min-width: 20px;
+    /* Prevent shrinking */
+    text-align: center;
+    flex-shrink: 0;
+    color: var(--ncs-primary-color);
+    line-height: 1;
+    /* Helps center */
+    font-size: 16px;
+}
+
+.ncs-result-friendly-id {
+    font-size: 13px;
+    color: var(--ncs-text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    /* Prevent shrinking */
+    line-height: 1.5;
+    /* Match approx line height */
+}
+
+.ncs-result-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* Vertically center text within details */
+    flex-grow: 1;
+    overflow: hidden;
+    /* Essential for ellipsis */
+    line-height: 1.4;
+    /* Adjust line height */
+}
+
+.ncs-result-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 400;
+    display: block;
+    /* Ensure it takes block space */
+}
+
+.ncs-result-name b {
+    /* Style for the bolded match */
+    color: var(--ncs-match-text-color);
+    font-weight: 600;
+    /* Ensure match is bold */
+}
+
+.ncs-result-type {
+    font-size: 12px;
+    color: var(--ncs-text-muted);
+    white-space: nowrap;
+    display: block;
+    /* Ensure it takes block space */
+}
+
+/* Default Header Link Styles */
+.ncs-show-more-link,
+.ncs-show-all-category-link {
+    font-size: 12px;
+    color: var(--ncs-primary-color);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.ncs-header-link {
+    margin-left: 12px;
+}
+
+.ncs-header-link:first-child {
+    margin-left: 0;
+}
+
+.ncs-show-more-link:hover,
+.ncs-show-all-category-link:hover {
+    text-decoration: underline;
+}
+
+.ncs-show-more-link.disabled {
+    color: var(--ncs-text-muted);
+    pointer-events: none;
+    text-decoration: none;
+    cursor: default;
+}
+
+/* Bottom Show All Button */
+.ncs-show-all-results-container {
+    border-top: 1px solid #eee;
+    padding: 12px 16px 8px 16px;
+    margin-top: 8px;
+}
+
+.ncs-results-area {
+    padding-top: 4px;
+}
+
+.ncs-show-all-results-button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background-color: transparent;
+    border: 1px solid var(--ncs-primary-color);
+    color: var(--ncs-primary-color);
+    text-align: center;
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 14px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.ncs-show-all-results-button:hover {
+    background-color: var(--ncs-primary-color);
+    color: white;
+}

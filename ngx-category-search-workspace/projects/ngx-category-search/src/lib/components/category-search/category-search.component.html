@@ -1,0 +1,192 @@
+<div class="ncs-container">
+    <!-- Search Input Group -->
+    <div class="ncs-input-group">
+        <!-- Custom Input Prefix Template -->
+        <ng-container *ngIf="inputPrefixTemplate" [ngTemplateOutlet]="inputPrefixTemplate"></ng-container>
+
+        <input type="text" class="ncs-input" [placeholder]="placeholder" [formControl]="searchTerm" (focus)="onFocus()"
+            (blur)="onBlur()" attr.aria-label="{{ placeholder }}" />
+
+        <!-- Default Clear Button -->
+        <button *ngIf="searchTerm.value && !inputSuffixTemplate" type="button" class="ncs-clear-button"
+            (click)="clearSearch($event)" aria-label="Clear search">
+            × <!-- Simple 'X' -->
+        </button>
+
+        <!-- Custom Input Suffix Template (e.g., custom clear button or other icons) -->
+        <ng-container *ngIf="inputSuffixTemplate" [ngTemplateOutlet]="inputSuffixTemplate"></ng-container>
+    </div>
+
+    <!-- Suggestions Dropdown -->
+    <div class="ncs-dropdown" *ngIf="isDropdownVisible" >
+
+        <!-- Loading State -->
+        <ng-container *ngIf="isLoading">
+            <ng-container *ngTemplateOutlet="loadingTemplate || defaultLoading"></ng-container>
+        </ng-container>
+
+        <!-- Content when NOT loading -->
+        <ng-container *ngIf="!isLoading">
+
+            <!-- Initial View (No Search Term) -->
+            <ng-container *ngIf="isInitial">
+                <!-- Initial Category Chiclets -->
+                <div class="ncs-chiclet-container"
+                    *ngIf="showInitialCategories && getCurrentCategories().length > (hideAllChicletInitial ? 1 : 0)">
+                    <ng-container *ngFor="let category of getCurrentCategories(); trackBy: trackByCategory">
+                        <ng-container *ngIf="!(hideAllChicletInitial && category === allCategoryLabel)">
+                            <!-- Use Custom Chiclet Template or Default -->
+                            <ng-container
+                                *ngTemplateOutlet="chicletTemplate || defaultChiclet; context: {$implicit: {category: category, count: getCategoryCount(category), isActive: activeCategory === category, type: 'initial'}}"></ng-container>
+                        </ng-container>
+                    </ng-container>
+                </div>
+
+                <!-- Recent Searches -->
+                <div class="ncs-section ncs-recent-searches" *ngIf="enableRecentSearches">
+                    <h3 class="ncs-section-heading">{{ recentSearchesLabel }}</h3>
+                    <ul *ngIf="recentSearches.length > 0; else noRecentItems" class="ncs-recent-list">
+                        <li *ngFor="let term of recentSearches; trackBy: trackByTerm" class="ncs-recent-item"
+                            (click)="selectRecentSearch(term, $event)"
+                            (keydown.enter)="selectRecentSearch(term, $event)"
+                            (keydown.space)="selectRecentSearch(term, $event)"
+                             tabindex="0">
+                            <!-- Use Custom Recent Item Template or Default -->
+                            <ng-container
+                                *ngTemplateOutlet="recentItemTemplate || defaultRecentItem; context: {$implicit: term}"></ng-container>
+                        </li>
+                    </ul>
+                    <ng-template #noRecentItems>
+                        <p class="ncs-no-recent">{{ noRecentSearchesLabel }}</p>
+                    </ng-template>
+                </div>
+            </ng-container>
+
+            <!-- Search Results View (With Search Term) -->
+            <ng-container *ngIf="!isInitial">
+                <!-- Result Category Chiclets -->
+                <div class="ncs-chiclet-container" *ngIf="showResultCategories && getCurrentCategories().length > 0">
+                    <ng-container *ngFor="let category of getCurrentCategories(); trackBy: trackByCategory">
+                        <!-- Use Custom Chiclet Template or Default -->
+                        <ng-container
+                            *ngTemplateOutlet="chicletTemplate || defaultChiclet; context: {$implicit: {category: category, count: getCategoryCount(category), isActive: activeCategory === category, type: 'results'}}"></ng-container>
+                    </ng-container>
+                </div>
+
+                <!-- Results Area -->
+                <div *ngIf="filteredResults.length > 0; else noResultsFound" class="ncs-results-area">
+                    <!-- Grouped Results -->
+                    <div *ngFor="let categoryKey of getGroupedResultKeys(); trackBy: trackByCategory"
+                        class="ncs-result-group"
+                        [hidden]="activeCategory !== allCategoryLabel && activeCategory !== categoryKey">
+                        <!-- Category Header -->
+                        <!-- Use Custom Header Template or Default -->
+                        <ng-container
+                            *ngTemplateOutlet="categoryHeaderTemplate || defaultCategoryHeader; context: {$implicit: {category: categoryKey, count: getTotalResultsForCategory(categoryKey)}, actions: categoryHeaderActions}"></ng-container>
+
+                        <!-- Default Category Header Actions Template (passed to custom header context) -->
+                        <ng-template #categoryHeaderActions>
+                            <a *ngIf="shouldShowMoreLink(categoryKey)" class="ncs-show-more-link ncs-header-link"
+                                (click)="onShowMore(categoryKey, $event)"
+                                
+                                [class.disabled]="!shouldShowMoreLink(categoryKey)"
+                                [attr.aria-disabled]="!shouldShowMoreLink(categoryKey)"
+                                tabindex="{{ !shouldShowMoreLink(categoryKey) ? -1 : 0 }}">{{ showMoreLabel }}</a>
+                            <a *ngIf="shouldShowCategoryShowAllLink(categoryKey)"
+                                class="ncs-show-all-category-link ncs-header-link"
+                                (click)="onNavigateToCategorySearch(categoryKey, $event)"
+                                >{{ showAllCategoryLabel }} {{
+                                getTotalResultsForCategory(categoryKey) }}</a>
+                        </ng-template>
+
+                        <!-- Result List for Category -->
+                        <ul class="ncs-result-list">
+                            <li *ngFor="let item of getVisibleResultsForCategory(categoryKey); trackBy: trackItemById"
+                                class="ncs-result-item" (click)="onItemSelected(item, $event)"
+                                (keydown.enter)="onItemSelected(item, $event)"
+                                (keydown.space)="onItemSelected(item, $event)"
+                                 tabindex="0">
+                                <!-- Use Custom Result Item Template or Default -->
+                                <ng-container
+                                    *ngTemplateOutlet="resultItemTemplate || defaultResultItem; context: {$implicit: item, term: searchTerm.value || ''}"></ng-container>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Overall "Show All" Button -->
+                    <div class="ncs-show-all-results-container"
+                        *ngIf="showBottomShowAllButton && filteredResults.length > 0">
+                        <button type="button" class="ncs-show-all-results-button"
+                            (click)="onNavigateToAllResultsPage($event)"
+                            >
+                            {{ showAllResultsLabel }} {{ filteredResults.length }} results for "{{ searchTerm.value }}"
+                        </button>
+                    </div>
+                </div>
+
+                <!-- No Results Found Message -->
+                <ng-template #noResultsFound>
+                    <!-- Use Custom No Results Template or Default -->
+                    <ng-container
+                        *ngTemplateOutlet="noResultsTemplate || defaultNoResults; context: {$implicit: searchTerm.value || ''}"></ng-container>
+                </ng-template>
+
+            </ng-container> <!-- End Search Results View -->
+
+        </ng-container> <!-- End Content when NOT loading -->
+
+    </div> <!-- End Dropdown -->
+</div>
+
+
+<!-- ###################################################### -->
+<!--             Default Template Definitions             -->
+<!-- ###################################################### -->
+
+<!-- Default Loading Indicator -->
+<ng-template #defaultLoading>
+    <div class="ncs-loading-indicator">Searching...</div>
+</ng-template>
+
+<!-- Default Chiclet Button -->
+<ng-template #defaultChiclet let-ctx>
+    <button type="button" class="ncs-chiclet" [class.active]="ctx.isActive" [disabled]="ctx.type === 'initial'"
+        (click)="selectCategory(ctx.category, $event)" >
+        {{ ctx.category }}
+        <span class="ncs-chiclet-count">({{ ctx.count }})</span>
+    </button>
+</ng-template>
+
+<!-- Default Recent Search Item -->
+<ng-template #defaultRecentItem let-term>
+    {{ term }}
+</ng-template>
+
+<!-- Default Result Item -->
+<ng-template #defaultResultItem let-item let-term="term">
+    <!-- Icon placeholder - Consumer should provide via template -->
+    <!-- <span class="ncs-result-icon">ICON</span> -->
+
+    <span class="ncs-result-friendly-id" *ngIf="friendlyIdField">{{ item[friendlyIdField] }}</span>
+    <div class="ncs-result-details">
+        <span class="ncs-result-name" [innerHTML]="item[nameField] | highlight: term"></span>
+        <span class="ncs-result-type">({{ item[categoryField] }})</span>
+    </div>
+</ng-template>
+
+<!-- Default Category Header -->
+<ng-template #defaultCategoryHeader let-ctx let-actionsTpl="actions">
+    <div class="ncs-category-header-row">
+        <h4 class="ncs-section-heading ncs-category-heading">{{ ctx.category }}</h4>
+        <span class="ncs-header-separator"></span>
+        <div class="ncs-category-header-actions">
+            <!-- Outlet for the default actions (Show more / Show all links) -->
+            <ng-container *ngTemplateOutlet="actionsTpl"></ng-container>
+        </div>
+    </div>
+</ng-template>
+
+<!-- Default No Results Message -->
+<ng-template #defaultNoResults let-term>
+    <p class="ncs-no-results">{{ noResultsLabel }} "{{ term }}".</p>
+</ng-template>
