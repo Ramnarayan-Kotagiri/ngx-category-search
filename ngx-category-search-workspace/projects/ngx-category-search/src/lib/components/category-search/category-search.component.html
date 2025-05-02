@@ -9,7 +9,7 @@
 
         <!-- Default Clear Button -->
         <button *ngIf="searchTerm.value && !inputSuffixTemplate" type="button" class="ncs-clear-button"
-            (click)="clearSearch($event)" aria-label="Clear search">
+            (mousedown)="clearSearch($event)" aria-label="Clear search">
             × <!-- Simple 'X' -->
         </button>
 
@@ -18,7 +18,7 @@
     </div>
 
     <!-- Suggestions Dropdown -->
-    <div class="ncs-dropdown" *ngIf="isDropdownVisible" >
+    <div class="ncs-dropdown" *ngIf="isDropdownVisible">
 
         <!-- Loading State -->
         <ng-container *ngIf="isLoading">
@@ -47,7 +47,7 @@
                     <h3 class="ncs-section-heading">{{ recentSearchesLabel }}</h3>
                     <ul *ngIf="recentSearches.length > 0; else noRecentItems" class="ncs-recent-list">
                         <li *ngFor="let term of recentSearches; trackBy: trackByTerm" class="ncs-recent-item"
-                            (click)="selectRecentSearch(term, $event)"
+                            (mousedown)="selectRecentSearch(term, $event)"
                             (keydown.enter)="selectRecentSearch(term, $event)"
                             (keydown.space)="selectRecentSearch(term, $event)"
                              tabindex="0">
@@ -87,14 +87,14 @@
                         <!-- Default Category Header Actions Template (passed to custom header context) -->
                         <ng-template #categoryHeaderActions>
                             <a *ngIf="shouldShowMoreLink(categoryKey)" class="ncs-show-more-link ncs-header-link"
-                                (click)="onShowMore(categoryKey, $event)"
+                                (mousedown)="onShowMore(categoryKey, $event)"
                                 
                                 [class.disabled]="!shouldShowMoreLink(categoryKey)"
                                 [attr.aria-disabled]="!shouldShowMoreLink(categoryKey)"
                                 tabindex="{{ !shouldShowMoreLink(categoryKey) ? -1 : 0 }}">{{ showMoreLabel }}</a>
                             <a *ngIf="shouldShowCategoryShowAllLink(categoryKey)"
                                 class="ncs-show-all-category-link ncs-header-link"
-                                (click)="onNavigateToCategorySearch(categoryKey, $event)"
+                                (mousedown)="onNavigateToCategorySearch(categoryKey, $event)"
                                 >{{ showAllCategoryLabel }} {{
                                 getTotalResultsForCategory(categoryKey) }}</a>
                         </ng-template>
@@ -102,7 +102,7 @@
                         <!-- Result List for Category -->
                         <ul class="ncs-result-list">
                             <li *ngFor="let item of getVisibleResultsForCategory(categoryKey); trackBy: trackItemById"
-                                class="ncs-result-item" (click)="onItemSelected(item, $event)"
+                                class="ncs-result-item" (mousedown)="onItemSelected(item, $event)"
                                 (keydown.enter)="onItemSelected(item, $event)"
                                 (keydown.space)="onItemSelected(item, $event)"
                                  tabindex="0">
@@ -117,7 +117,7 @@
                     <div class="ncs-show-all-results-container"
                         *ngIf="showBottomShowAllButton && filteredResults.length > 0">
                         <button type="button" class="ncs-show-all-results-button"
-                            (click)="onNavigateToAllResultsPage($event)"
+                            (mousedown)="onNavigateToAllResultsPage($event)"
                             >
                             {{ showAllResultsLabel }} {{ filteredResults.length }} results for "{{ searchTerm.value }}"
                         </button>
@@ -151,7 +151,7 @@
 <!-- Default Chiclet Button -->
 <ng-template #defaultChiclet let-ctx>
     <button type="button" class="ncs-chiclet" [class.active]="ctx.isActive" [disabled]="ctx.type === 'initial'"
-        (click)="selectCategory(ctx.category, $event)" >
+        (mousedown)="selectCategory(ctx.category, $event)" >
         {{ ctx.category }}
         <span class="ncs-chiclet-count">({{ ctx.count }})</span>
     </button>
@@ -167,7 +167,7 @@
     <!-- Icon placeholder - Consumer should provide via template -->
     <!-- <span class="ncs-result-icon">ICON</span> -->
 
-    <span class="ncs-result-friendly-id" *ngIf="friendlyIdField">{{ item[friendlyIdField] }}</span>
+    <span class="ncs-result-friendly-id" *ngIf="friendlyIdField">{{ item[friendlyIdField] | highlight: term }}</span>
     <div class="ncs-result-details">
         <span class="ncs-result-name" [innerHTML]="item[nameField] | highlight: term"></span>
         <span class="ncs-result-type">({{ item[categoryField] }})</span>

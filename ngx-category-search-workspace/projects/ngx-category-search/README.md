@@ -1,138 +1,152 @@
 # ngx-category-search
 
-<!--[![NPM Version](https://img.shields.io/npm/v/@your-npm-username/ngx-category-search.svg)](https://www.npmjs.com/package/@r-ko/ngx-category-search)-->
+[![NPM Version](https://img.shields.io/npm/v/@r-ko/ngx-category-search.svg)](https://www.npmjs.com/package/@r-ko/ngx-category-search)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-<!-- Add other badges if applicable: build status, coverage, etc. -->
+[![Build Status](https://img.shields.io/github/actions/workflow/status/r-k-o/ngx-category-search/main.yml?branch=main)](https://github.com/r-k-o/ngx-category-search/actions/workflows/main.yml) <!-- Placeholder - Update if you have CI -->
+<!-- Add other badges: coverage, downloads, etc. -->
 
-**ngx-category-search** is a highly configurable Angular standalone component for creating category-based search dropdowns with filtering, suggestions, recent searches, and UI inspired by the Azure Portal experience.
+**Version:** 0.2.0
 
-<!-- Placeholder for GIF/Screenshot -->
-<!--**(Demo GIF/Screenshot Placeholder)**-->
+**`ngx-category-search`** provides a sophisticated, highly configurable Angular component for crafting intuitive, category-driven search experiences. Inspired by the Azure Portal's search paradigm, it offers a robust UI foundation while cleanly decoupling data fetching logic, empowering developers to integrate complex search functionalities with ease.
 
-## Features
+---
 
-*   **Dynamic Search & Filtering:** Real-time filtering of provided data as the user types.
-*   **Configurable Search Logic:** Supports searching across multiple fields (primary name, optional friendly ID) with configurable logic (whole word vs. substring, minimum length for ID search).
-*   **Category Chiclets:** Displays categories as filter chiclets (pills) with item counts, both initially and based on search results.
-*   **Grouped Results:** Search results are visually grouped by category.
-*   **Recent Searches:** Optionally stores and displays recent searches using `localStorage`.
-*   **Pagination/Show More:** Handles large result sets within categories using a "Show more" link (reveals all within the dropdown for that category).
-*   **Navigation Integration:** Emits events to allow the consuming application to handle navigation to full search results pages (overall or category-specific).
-*   **Highlighting:** Bolds the matched search term within result names.
-*   **Customizable Templates:** Allows providing custom Angular templates (`ng-template`) for rendering result items, recent search items, chiclets, headers, and more.
-*   **Configurable Behavior:** Numerous `@Input` properties to control behavior like debouncing, batch sizes, initial state, feature toggles, and UI labels.
-*   **Theming:** Uses CSS Custom Properties for easy theming and style overrides.
-*   **Standalone:** Built as an Angular standalone component for easy integration.
-*   **Generic:** Works with generic data types (`Record<string, any>`).
+<!-- 🖼️ Placeholder for an engaging GIF showcasing the component in action -->
+**[Demo GIF/Screenshot Placeholder - Replace this line]**
+
+---
+
+## Core Concepts & Features
+
+`ngx-category-search` focuses on providing a flexible UI layer for search interactions:
+
+*   **Decoupled Data Fetching:** Embraces a reactive pattern by emitting debounced search terms (`searchRequested`), allowing the host application to manage data retrieval via any backend or state management solution. Results are seamlessly fed back via the `searchResults` input.
+*   **Dynamic Categorization:** Intelligently displays filter chiclets based on categories derived from initial data (`data` input for pre-search context) and live search results (`searchResults`).
+*   **Structured Result Presentation:** Organizes search results visually under collapsible category headers within the dropdown.
+*   **Stateful Recent Searches:** Enhances user workflow with optional `localStorage`-backed persistence of recent search terms.
+*   **Controlled Result Visibility:** Manages large category result sets gracefully with "Show more" links for progressive disclosure within the dropdown.
+*   **Seamless Navigation Hooks:** Provides dedicated output events (`navigateToAll`, `navigateToCategory`) for integrating with application routing, enabling transitions to dedicated search result views.
+*   **Extensible UI Customization:** Offers extensive control over presentation through `ng-template` outlets for nearly every UI element (results, chiclets, headers, input adornments, loading/empty states).
+*   **Fine-Grained Configuration:** A rich set of `@Input` properties allows precise tuning of behavior (debouncing, batching, initial state, feature toggles) and localization (UI labels).
+*   **Themeable Foundation:** Leverages CSS Custom Properties for straightforward styling and adaptation to various design systems.
+*   **Modern Angular:** Built as a standalone component, promoting modularity and aligning with current Angular best practices.
+*   **Type Safety:** Utilizes generics (`<T extends SearchDataItem>`) for enhanced type checking in consuming applications.
+
+## Design Philosophy
+
+*   **Separation of Concerns:** The component deliberately focuses on the *presentation* and *interaction* aspects of search, leaving data fetching and state management to the consuming application. This promotes flexibility and testability.
+*   **Configurability over Opinion:** Provides numerous inputs and template hooks to adapt to diverse requirements rather than imposing rigid structures.
+*   **Developer Experience:** Aims for a clear API surface and straightforward integration, leveraging standard Angular patterns.
 
 ## Installation
 
 ```bash
-npm install @r-ko/ngx-category-search
+npm install @r-ko/ngx-category-search@^0.2.0
 ```
 
 Or using yarn:
 
 ```bash
-yarn add @r-ko/ngx-category-search
+yarn add @r-ko/ngx-category-search@^0.2.0
 ```
 
 **Peer Dependencies:**
 
-This library requires the following peer dependencies to be installed in your project:
+Ensure your project includes compatible versions of these packages:
 
-*   `@angular/common` (^17.1.0 || ^18.0.0)
-*   `@angular/core` (^17.1.0 || ^18.0.0)
-*   `@angular/forms` (^17.1.0 || ^18.0.0)
+*   `@angular/common` (^17.1.0 || ^18.0.0 || ^19.0.0)
+*   `@angular/core` (^17.1.0 || ^18.0.0 || ^19.0.0)
+*   `@angular/forms` (^17.1.0 || ^18.0.0 || ^19.0.0)
 *   `rxjs` (~7.8.0)
 
-## Usage
+## Usage Example
 
-1.  **Import `CategorySearchComponent`:** Import the component into your Angular standalone component or module where you want to use it.
+Integrate `ncs-category-search` into your component, connect it to your data fetching logic, and optionally provide custom templates.
 
-    ```typescript
-    // Example in your component.ts
-    import { Component } from '@angular/core';
-    import { CategorySearchComponent, SearchDataItem } from '@r-ko/ngx-category-search'; // Import component and type
-    import { HighlightPipe } from '@r-ko/ngx-category-search'; // Import pipe IF using custom templates that need it
-    import { CommonModule } from '@angular/common'; // For *ngIf, *ngFor in your template
+```typescript
+// 1. Import necessary modules and components
+import { Component, inject, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { CategorySearchComponent, SearchDataItem, HighlightPipe } from '@r-ko/ngx-category-search';
+import { MySearchService, MyData } from './my-search.service'; // Your data service
+import { Subscription, Observable } from 'rxjs';
 
-    // Define your application-specific data structure
-    interface MyData extends SearchDataItem {
-      uuid: string; // Using 'uuid' as the unique ID field
-      resourceId: string; // Using 'resourceId' as the friendly ID
-      resourceName: string; // Using 'resourceName' as the primary name
-      resourceType: string; // Using 'resourceType' as the category
-      region: string;
-      status: 'active' | 'inactive';
+@Component({
+  selector: 'app-my-feature',
+  standalone: true,
+  imports: [ CommonModule, CategorySearchComponent, HighlightPipe ],
+  providers: [MySearchService],
+  template: `
+    <div class="search-wrapper">
+      <ncs-category-search
+          [data]="initialCategoryData$ | async" <!-- Optional: Async pipe for initial data -->
+          [searchResults]="searchData$ | async" <!-- Async pipe for search results -->
+          trackByIdField="uuid"
+          nameField="resourceName"
+          categoryField="resourceType"
+          [friendlyIdField]="'resourceId'"
+          [placeholder]="'Search resources...'"
+          [resultItemTemplate]="customItemTpl"
+          (searchRequested)="onSearchRequested($event)"
+          (itemSelected)="onItemSelected($event)"
+          (navigateToAll)="onNavigateAll($event)"
+          (navigateToCategory)="onNavigateCategory($event)"
+          (searchCleared)="onSearchCleared()"
+      />
+    </div>
+
+    <!-- Define Custom Templates -->
+    <ng-template #customItemTpl let-item let-term="term">
+       <!-- Your custom item rendering -->
+       <span [innerHTML]="item.resourceName | highlight: term"></span>
+       <!-- ... -->
+    </ng-template>
+  `,
+  styles: [`.search-wrapper { max-width: 600px; margin: 2rem auto; }`],
+  changeDetection: ChangeDetectionStrategy.OnPush // Recommended for performance
+})
+export class MyFeatureComponent implements OnInit, OnDestroy {
+  private searchService = inject(MySearchService);
+  private cdr = inject(ChangeDetectorRef); // Inject ChangeDetectorRef if needed
+  private searchSub: Subscription | null = null;
+
+  // Use Observables for reactive data binding
+  searchData$: Observable<MyData[] | null> | null = null;
+  initialCategoryData$: Observable<MyData[]> | null = null;
+
+  ngOnInit() {
+    // Fetch initial data for category counts (optional)
+    this.initialCategoryData$ = this.searchService.getInitialData();
+  }
+
+  // 2. Handle search term emission
+  onSearchRequested(term: string) {
+    console.log('Parent: Search requested for:', term);
+    if (!term) {
+      this.searchData$ = null; // Clear results observable
+    } else {
+      // Trigger search via your service; assign the resulting Observable
+      this.searchData$ = this.searchService.search(term);
     }
+    // If not using async pipe directly on searchData$, manage subscription:
+    // this.searchSub?.unsubscribe();
+    // this.searchSub = this.searchService.search(term).subscribe(results => {
+    //   this.searchData = results;
+    //   this.cdr.markForCheck(); // Trigger change detection if needed
+    // });
+  }
 
-    @Component({
-      selector: 'app-my-feature',
-      standalone: true,
-      imports: [
-          CommonModule,
-          CategorySearchComponent, // Import the library component
-          // HighlightPipe // Only needed here if custom template uses it directly
-      ],
-      template: `
-        <h2>My Application Search</h2>
-        <ncs-category-search
-            [data]="myData"
-            trackByIdField="uuid"
-            nameField="resourceName"
-            categoryField="resourceType"
-            friendlyIdField="resourceId"
-            [placeholder]="'Search resources by name or ID...'"
-            [resultsBatchSize]="8"
-            [resultItemTemplate]="customItemTpl"
-            (itemSelected)="onItemSelected($event)"
-            (navigateToAll)="onNavigateAll($event)"
-            (navigateToCategory)="onNavigateCategory($event)"
-        >
-        </ncs-category-search>
+  // 3. Implement action handlers
+  onItemSelected(item: MyData) { /* ... handle selection ... */ }
+  onNavigateAll(event: { term: string }) { /* ... handle navigation ... */ }
+  onNavigateCategory(event: { term: string; category: string }) { /* ... handle navigation ... */ }
+  onSearchCleared() { /* ... optional cleanup ... */ }
 
-        <!-- Custom Template Definition -->
-        <ng-template #customItemTpl let-item let-term="term">
-           <span class="my-custom-icon">{{ getIcon(item.resourceType) }}</span>
-           <span class="ncs-result-friendly-id">{{ item.resourceId }}</span>
-           <div class="ncs-result-details">
-              <span class="ncs-result-name" [innerHTML]="item.resourceName | highlight: term"></span>
-              <span class="ncs-result-type">{{ item.resourceType }} - {{ item.region }}</span>
-           </div>
-           <span class="my-custom-status-indicator {{ item.status }}"></span>
-        </ng-template>
-      `
-      // Add component styles if needed for .my-custom-icon etc.
-    })
-    export class MyFeatureComponent {
-      myData: MyData[] = [ /* Your array of data objects */ ];
-
-      onItemSelected(item: MyData) {
-        console.log('Item selected in parent:', item);
-        // Navigate or perform action
-      }
-
-      onNavigateAll(event: { term: string }) {
-        console.log('Navigate all requested:', event);
-        // Use Angular Router: this.router.navigate(['/search'], { queryParams: { q: event.term } });
-      }
-
-      onNavigateCategory(event: { term: string; category: string }) {
-        console.log('Navigate category requested:', event);
-        // Use Angular Router: this.router.navigate(['/search'], { queryParams: { q: event.term, category: event.category } });
-      }
-
-      // Helper for custom template
-      getIcon(type: string): string {
-         switch(type.toLowerCase()) {
-             case 'app service': return '⚙️';
-             case 'virtual machine': return '💻';
-             default: return '📄';
-         }
-      }
-    }
-    ```
+  ngOnDestroy() {
+    // this.searchSub?.unsubscribe(); // Unsubscribe if managing manually
+  }
+}
+```
 
 ## API Reference
 
@@ -142,114 +156,97 @@ This library requires the following peer dependencies to be installed in your pr
 
 ### Inputs
 
+*(Detailed table follows - ensure accuracy based on the latest code)*
+
 | Input                     | Type                                                                                                               | Required | Default Value                      | Description                                                                                              |
 | :------------------------ | :----------------------------------------------------------------------------------------------------------------- | :------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------- |
-| `data`                    | `T[]` (where `T extends SearchDataItem`)                                                                           | `false`  | `[]`                               | The array of data objects to search through.                                                             |
-| `trackByIdField`          | `keyof T`                                                                                                          | **`true`** | `undefined`                        | The name of the property on data items that serves as a unique identifier (for `*ngFor` trackBy).        |
-| `nameField`               | `keyof T`                                                                                                          | **`true`** | `undefined`                        | The name of the property used for the primary display text and whole-word search matching.               |
-| `categoryField`           | `keyof T`                                                                                                          | **`true`** | `undefined`                        | The name of the property used to group results into categories.                                          |
-| `friendlyIdField`         | `keyof T \| null`                                                                                                  | `false`  | `null`                             | Optional: The name of the property used for secondary ID display and substring search (min length applies). |
-| `placeholder`             | `string`                                                                                                           | `false`  | `'Search...'`                      | Placeholder text for the search input field.                                                             |
-| `debounceMs`              | `number`                                                                                                           | `false`  | `300`                              | Debounce time in milliseconds before triggering a search after user stops typing.                      |
-| `minFriendlyIdSearchLength` | `number`                                                                                                           | `false`  | `3`                                | Minimum length of the search term required to trigger searching against the `friendlyIdField`.           |
-| `resultsBatchSize`        | `number`                                                                                                           | `false`  | `5`                                | Initial number of results shown per category before "Show more" is needed.                               |
-| `initialDropdownState`    | `'closed' \| 'openOnFocus'`                                                                                        | `false`  | `'openOnFocus'`                    | Controls if the dropdown opens automatically when the input gains focus (before typing).                 |
-| `closeOnItemSelect`       | `boolean`                                                                                                          | `false`  | `true`                             | Whether the dropdown should close automatically after an item is selected.                             |
-| `closeOnNavigate`         | `boolean`                                                                                                          | `false`  | `true`                             | Whether the dropdown should close automatically after a navigation event (`navigateToAll`, `navigateToCategory`) is emitted. |
-| `enableRecentSearches`    | `boolean`                                                                                                          | `false`  | `true`                             | Enables/disables the recent searches feature (uses `localStorage`).                                      |
-| `maxRecentSearches`       | `number`                                                                                                           | `false`  | `5`                                | Maximum number of unique recent searches to store and display.                                         |
-| `recentSearchesKey`       | `string`                                                                                                           | `false`  | `'ngx_category_search_recent'`   | The key used for storing recent searches in `localStorage`. Customize to avoid conflicts.                |
-| `allCategoryLabel`        | `string`                                                                                                           | `false`  | `'All'`                            | Text label used for the "All" category chiclet.                                                          |
-| `recentSearchesLabel`     | `string`                                                                                                           | `false`  | `'Recent Searches'`                | Heading text for the recent searches section.                                                          |
-| `noRecentSearchesLabel`   | `string`                                                                                                           | `false`  | `'No recent searches.'`            | Text displayed when there are no recent searches.                                                        |
-| `noResultsLabel`          | `string`                                                                                                           | `false`  | `'No results found for'`           | Prefix for the message displayed when no results match the search term (term is appended).             |
-| `showAllResultsLabel`     | `string`                                                                                                           | `false`  | `'Show all'`                       | Prefix text for the bottom "Show all results" button (count and term are appended).                      |
-| `showMoreLabel`           | `string`                                                                                                           | `false`  | `'Show more'`                      | Text for the "Show more" link in category headers.                                                       |
-| `showAllCategoryLabel`    | `string`                                                                                                           | `false`  | `'Show all'`                       | Prefix text for the "Show all [count]" link in category headers (count is appended).                 |
-| `showBottomShowAllButton` | `boolean`                                                                                                          | `false`  | `true`                             | Toggles the visibility of the main "Show all X results for 'Y'" button at the bottom of the dropdown.   |
-| `showCategoryShowAllLink` | `boolean`                                                                                                          | `false`  | `true`                             | Toggles the visibility of the "Show all [count]" link within each category header.                     |
-| `showCategoryShowMoreLink`| `boolean`                                                                                                          | `false`  | `true`                             | Toggles the visibility of the "Show more" link within each category header.                          |
-| `showInitialCategories`   | `boolean`                                                                                                          | `false`  | `true`                             | Toggles the visibility of category chiclets in the initial (empty search) view.                        |
-| `showResultCategories`    | `boolean`                                                                                                          | `false`  | `true`                             | Toggles the visibility of category chiclets in the search results view.                                |
-| `hideAllChicletInitial`   | `boolean`                                                                                                          | `false`  | `true`                             | If `true`, the "All" category chiclet is hidden in the initial view (only shown in results view).        |
-| `inputPrefixTemplate`     | `TemplateRef<any> \| null`                                                                                         | `false`  | `null`                             | Custom template to render before the input field (e.g., custom icon).                                  |
-| `inputSuffixTemplate`     | `TemplateRef<any> \| null`                                                                                         | `false`  | `null`                             | Custom template to render after the input field (e.g., custom clear button).                             |
-| `resultItemTemplate`      | `TemplateRef<{$implicit: T, term: string}> \| null`                                                                | `false`  | `null`                             | Custom template for rendering each result item. Context provides the data item (`$implicit`) and current search `term`. |
-| `recentItemTemplate`      | `TemplateRef<{$implicit: string}> \| null`                                                                         | `false`  | `null`                             | Custom template for rendering each recent search item. Context provides the search term string (`$implicit`). |
-| `chicletTemplate`         | `TemplateRef<{$implicit: {category: string, count: number, isActive: boolean, type: 'initial' \| 'results'}}> \| null` | `false`  | `null`                             | Custom template for rendering category chiclets. Context provides category name, count, active status, and type ('initial' or 'results'). |
-| `categoryHeaderTemplate`  | `TemplateRef<{$implicit: {category: string, count: number}, actions?: TemplateRef<any>}> \| null`                     | `false`  | `null`                             | Custom template for category headers in results view. Context provides category name, count, and optionally the default actions template (`actions`). |
-| `noResultsTemplate`       | `TemplateRef<{$implicit: string}> \| null`                                                                         | `false`  | `null`                             | Custom template displayed when no results are found. Context provides the search term (`$implicit`).   |
-| `loadingTemplate`         | `TemplateRef<any> \| null`                                                                                         | `false`  | `null`                             | Custom template displayed while results are loading (after debounce).                                  |
+| `data`                    | `T[]`                                                                                                              | `false`  | `[]`                               | Optional: Data source for *initial* category chiclet counts (pre-search).                                |
+| `searchResults`           | `T[] \| null`                                                                                                      | `false`  | `null`                             | **Core Input:** Observable results provided by the parent based on `searchRequested`.                    |
+| `trackByIdField`          | `keyof T`                                                                                                          | **`true`** | `undefined`                        | Unique identifier property name for `trackBy`.                                                           |
+| `nameField`               | `keyof T`                                                                                                          | **`true`** | `undefined`                        | Primary display text property name.                                                                      |
+| `categoryField`           | `keyof T`                                                                                                          | **`true`** | `undefined`                        | Property name used for grouping results into categories.                                                 |
+| `friendlyIdField`         | `keyof T \| null`                                                                                                  | `false`  | `null`                             | Optional: Secondary identifier property name for display.                                                |
+| `placeholder`             | `string`                                                                                                           | `false`  | `'Search...'`                      | Input field placeholder text.                                                                            |
+| `debounceMs`              | `number`                                                                                                           | `false`  | `300`                              | Delay (ms) before `searchRequested` is emitted after typing stops.                                     |
+| `resultsBatchSize`        | `number`                                                                                                           | `false`  | `5`                                | Initial number of items shown per category before "Show more".                                           |
+| `initialDropdownState`    | `'closed' \| 'openOnFocus'`                                                                                        | `false`  | `'openOnFocus'`                    | Controls initial dropdown visibility on focus.                                                           |
+| `enableRecentSearches`    | `boolean`                                                                                                          | `false`  | `true`                             | Toggle `localStorage`-based recent searches.                                                             |
+| `maxRecentSearches`       | `number`                                                                                                           | `false`  | `5`                                | Maximum number of recent searches stored.                                                              |
+| `recentSearchesKey`       | `string`                                                                                                           | `false`  | `'ngx_category_search_recent'`   | `localStorage` key for recent searches.                                                                  |
+| `allCategoryLabel`        | `string`                                                                                                           | `false`  | `'All'`                            | Label for the "All" category chiclet.                                                                    |
+| `recentSearchesLabel`     | `string`                                                                                                           | `false`  | `'Recent Searches'`                | Section header for recent searches.                                                                      |
+| `noRecentSearchesLabel`   | `string`                                                                                                           | `false`  | `'No recent searches.'`            | Text shown when no recent searches exist.                                                                |
+| `noResultsLabel`          | `string`                                                                                                           | `false`  | `'No results found for'`           | Prefix for the "no results" message.                                                                     |
+| `showAllResultsLabel`     | `string`                                                                                                           | `false`  | `'Show all'`                       | Prefix for the bottom "Show all results" button.                                                         |
+| `showMoreLabel`           | `string`                                                                                                           | `false`  | `'Show more'`                      | Text for the "Show more" link within categories.                                                         |
+| `showAllCategoryLabel`    | `string`                                                                                                           | `false`  | `'Show all'`                       | Prefix for the "Show all [count]" link within categories.                                                |
+| `showBottomShowAllButton` | `boolean`                                                                                                          | `false`  | `true`                             | Toggle visibility of the main "Show all X results" button.                                               |
+| `showCategoryShowAllLink` | `boolean`                                                                                                          | `false`  | `true`                             | Toggle visibility of the "Show all [count]" link in category headers.                                    |
+| `showCategoryShowMoreLink`| `boolean`                                                                                                          | `false`  | `true`                             | Toggle visibility of the "Show more" link in category headers.                                           |
+| `showInitialCategories`   | `boolean`                                                                                                          | `false`  | `true`                             | Toggle visibility of initial category chiclets (requires `data` input).                                  |
+| `showResultCategories`    | `boolean`                                                                                                          | `false`  | `true`                             | Toggle visibility of category chiclets during search results.                                            |
+| `hideAllChicletInitial`   | `boolean`                                                                                                          | `false`  | `true`                             | Hide the "All" chiclet in the initial view.                                                              |
+| `inputPrefixTemplate`     | `TemplateRef<any> \| null`                                                                                         | `false`  | `null`                             | Custom template before the input field.                                                                  |
+| `inputSuffixTemplate`     | `TemplateRef<any> \| null`                                                                                         | `false`  | `null`                             | Custom template after the input field.                                                                   |
+| `resultItemTemplate`      | `TemplateRef<{$implicit: T, term: string}> \| null`                                                                | `false`  | `null`                             | Custom template for each result item.                                                                    |
+| `recentItemTemplate`      | `TemplateRef<{$implicit: string}> \| null`                                                                         | `false`  | `null`                             | Custom template for each recent search item.                                                             |
+| `chicletTemplate`         | `TemplateRef<{$implicit: {category: string, count: number, isActive: boolean, type: 'initial' \| 'results'}}> \| null` | `false`  | `null`                             | Custom template for category chiclets.                                                                   |
+| `categoryHeaderTemplate`  | `TemplateRef<{$implicit: {category: string, count: number}, actions?: TemplateRef<any>}> \| null`                     | `false`  | `null`                             | Custom template for category headers.                                                                    |
+| `noResultsTemplate`       | `TemplateRef<{$implicit: string}> \| null`                                                                         | `false`  | `null`                             | Custom template for the "no results" message.                                                            |
+| `loadingTemplate`         | `TemplateRef<any> \| null`                                                                                         | `false`  | `null`                             | Custom template for the loading state.                                                                   |
+| ~~`closeOnItemSelect`~~   | `boolean`                                                                                                          | `false`  | `true`                             | **REMOVED/DEPRECATED:** Behavior changed in 0.2.0; dropdown stays open.                                  |
+| ~~`closeOnNavigate`~~     | `boolean`                                                                                                          | `false`  | `true`                             | **REMOVED/DEPRECATED:** Behavior changed in 0.2.0; dropdown stays open.                                  |
 
-*(`T` represents the generic type of your data items passed to the `data` input)*
+*(`T` represents the generic type of your data items)*
 
 ### Outputs
 
+*(Detailed table follows - ensure accuracy based on the latest code)*
+
 | Output                      | Payload Type                            | Description                                                                                                |
 | :-------------------------- | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-| `itemSelected`              | `T`                                     | Emitted when a user selects (clicks or keypresses Enter/Space on) a result item from the list. Payload is the full data item. |
-| `recentSearchSelected`      | `string`                                | Emitted when a user selects a recent search term. Payload is the selected term string.                      |
-| `categorySelected`          | `string`                                | Emitted when a user selects a category chiclet *in the search results view*. Payload is the category name.   |
-| `showMoreClicked`           | `string`                                | Emitted when the user clicks the "Show more" link within a category header. Payload is the category name.   |
-| `navigateToCategory`        | `{ term: string; category: string }`    | Emitted when the user clicks the "Show all [count]" link within a category header. Provides search term and category. |
-| `navigateToAll`             | `{ term: string }`                      | Emitted when the user clicks the bottom "Show all results" button. Provides the search term.                 |
-| `searchCleared`             | `void`                                  | Emitted when the user clicks the clear ('x') button in the search input.                                   |
-| `searchTermChanged`         | `string`                                | Emitted after the specified `debounceMs` when the search term input value changes.                       |
-| `dropdownVisibilityChanged` | `boolean`                               | Emitted when the dropdown opens (`true`) or closes (`false`).                                              |
+| `searchRequested`           | `string`                                | **Core Output:** Emitted after debounce; signals parent to fetch data for the given term.                    |
+| `itemSelected`              | `T`                                     | Emitted on result item selection.                                                                          |
+| `recentSearchSelected`      | `string`                                | Emitted on recent search selection (also triggers `searchRequested`).                                      |
+| `categorySelected`          | `string`                                | Emitted on category chiclet selection (only in results view).                                              |
+| `showMoreClicked`           | `string`                                | Emitted when "Show more" is clicked within a category.                                                     |
+| `navigateToCategory`        | `{ term: string; category: string }`    | Emitted when "Show all [count]" is clicked in a category header.                                           |
+| `navigateToAll`             | `{ term: string }`                      | Emitted when the bottom "Show all results" button is clicked.                                              |
+| `searchCleared`             | `void`                                  | Emitted when search is cleared via button or external click.                                               |
+| `searchTermChanged`         | `string`                                | Emitted *immediately* on input change (no debounce).                                                       |
+| `dropdownVisibilityChanged` | `boolean`                               | Emitted when dropdown visibility changes.                                                                  |
 
 ### Custom Templates Context
 
-*   **`resultItemTemplate`:**
-    *   `$implicit: T`: The data item for the current row.
-    *   `term: string`: The current search term value.
-*   **`recentItemTemplate`:**
-    *   `$implicit: string`: The recent search term string.
-*   **`chicletTemplate`:**
-    *   `$implicit: { category: string, count: number, isActive: boolean, type: 'initial' | 'results' }`: Context object for the chiclet.
-*   **`categoryHeaderTemplate`:**
-    *   `$implicit: { category: string, count: number }`: Context object for the header.
-    *   `actions?: TemplateRef<any>`: An optional template reference to the default "Show more"/"Show all" links for that category. You can render this inside your custom header using `[ngTemplateOutlet]="actions"`.
-*   **`noResultsTemplate`:**
-    *   `$implicit: string`: The search term that yielded no results.
+*(Context details remain the same - ensure accuracy)*
+
+*   **`resultItemTemplate`:** `$implicit: T`, `term: string`
+*   **`recentItemTemplate`:** `$implicit: string`
+*   **`chicletTemplate`:** `$implicit: { category: string, count: number, isActive: boolean, type: 'initial' | 'results' }` (Clicks handled internally)
+*   **`categoryHeaderTemplate`:** `$implicit: { category: string, count: number }`, `actions?: TemplateRef<any>`
+*   **`noResultsTemplate`:** `$implicit: string`
 
 ### Included Pipes
 
-*   **`HighlightPipe`:** Can be imported from `@r-ko/ngx-category-search` if you need to apply bolding to matches within your custom `resultItemTemplate`.
-    *   Usage: `[innerHTML]="item[nameField] | highlight: term"`
+*   **`HighlightPipe`:** Import from `@r-ko/ngx-category-search` for use in custom templates: `[innerHTML]="item[nameField] | highlight: term"`
 
 ### Styling & Theming
 
-The component uses CSS Custom Properties for easy theming. Override these variables in your global stylesheet or a parent component's stylesheet to change the appearance:
+Leverage CSS Custom Properties for seamless integration with your application's theme. Define overrides in a global scope (`:root` or a container element).
 
 ```css
-/* Example overrides in your styles.css */
-:root { /* Or target a specific container */
-  --ncs-primary-color: #e83e8c; /* Change primary blue to pink */
-  --ncs-chiclet-active-bg: #bf1d69; /* Darker pink for active chiclet */
-  --ncs-match-text-color: #bf1d69;
-  --ncs-font-family: 'Lato', sans-serif; /* Change font */
-  /* ... override other variables as needed ... */
+/* Example: styles.css */
+:root {
+  --ncs-primary-color: #623cea; /* Example: Use a purple theme */
+  --ncs-focus-glow-color: rgba(98, 58, 234, 0.3);
+  --ncs-border-color: #d1d1d1;
+  --ncs-dropdown-bg: #ffffff;
+  --ncs-hover-bg: #f0f0f0;
+  /* ... other overrides ... */
 }
-
-/* If library ViewEncapsulation is Emulated (Default): */
-/* Use ::ng-deep carefully or rely on custom properties */
-/*
-:host ::ng-deep ncs-category-search .ncs-input {
-    border-radius: 20px;
-}
-*/
-
-/* If library ViewEncapsulation is None: */
-/* Direct overrides work but risk conflicts */
-/*
-ncs-category-search .ncs-input {
-    border-radius: 20px;
-}
-*/
-
 ```
 
-**List of CSS Custom Properties:**
+**(List of CSS Custom Properties remains the same)**
 
 *   `--ncs-primary-color`
 *   `--ncs-focus-glow-color`
@@ -271,21 +268,21 @@ ncs-category-search .ncs-input {
 
 ## Development & Contribution
 
-1.  Clone the repository: `git clone <YOUR REPO URL>`
-2.  Navigate to workspace: `cd ngx-category-search-workspace`
-3.  Install dependencies: `npm install`
-4.  Build the library: `npm run build:lib` or `ng build ngx-category-search`
-5.  Link for local testing:
-    *   `cd dist/ngx-category-search`
-    *   `npm link`
-    *   `cd path/to/your/test-app`
-    *   `npm link @r-ko/ngx-category-search`
-6.  Run the test application: `ng serve`
+We welcome contributions! To get started:
 
-Contributions are welcome! Please follow standard fork/pull request procedures. Ensure tests pass and code adheres to Angular style guidelines.
+1.  **Fork & Clone:** Fork the repository and clone it locally.
+2.  **Setup:** Navigate to the workspace (`ngx-category-search-workspace`) and run `npm install`.
+3.  **Build Library:** `npm run build:lib` or `ng build ngx-category-search`.
+4.  **Local Linking (Optional):**
+    *   `cd dist/ngx-category-search` && `npm link`
+    *   Navigate to your test application: `cd path/to/your/test-app` && `npm link @r-ko/ngx-category-search`
+5.  **Serve Test App:** Run `ng serve` (assuming a demo app exists in the workspace) to test changes.
+6.  **Develop:** Make your changes in the `projects/ngx-category-search/src/lib` directory.
+7.  **Test:** Ensure any relevant tests pass or are updated.
+8.  **Pull Request:** Submit a PR detailing your changes.
+
+Please adhere to the Angular Style Guide and ensure your code is well-documented.
 
 ## License
 
-[MIT](LICENSE) &copy; <Ram Kotagiri/rnrkotagiri@gmail.com>
-
-```
+[MIT](LICENSE) &copy; 2025 Ram Kotagiri (rnrkotagiri@gmail.com)

@@ -12,23 +12,23 @@ import {
   ViewEncapsulation,
   SimpleChanges,
   HostListener,
-  ElementRef, // Import ViewEncapsulation
+  ElementRef,
 } from '@angular/core';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
-import { Subject, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, tap } from 'rxjs/operators';
 import { HighlightPipe } from '../../pipes/highlight.pipe'; // Adjust path as needed
 
 // --- Types ---
 export type SearchDataItem = Record<string, any>;
-type CategoryKey = string; // Categories are identified by string values from the data
+type CategoryKey = string;
 type GroupedResults<T> = { [key: CategoryKey]: T[] };
-type CategoryCounts = { [key: CategoryKey]: number }; // Includes 'All' category label key
+type CategoryCounts = { [key: CategoryKey]: number };
 type VisibleCounts = { [key: CategoryKey]: number };
 
-// Helper function (keep as is)// Helper function to escape regex characters (can be defined outside the class or inside if preferred)
+// Helper function (keep as is)
 function escapeRegex(s: string): string {
-  return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 @Component({
@@ -38,36 +38,30 @@ function escapeRegex(s: string): string {
   templateUrl: './category-search.component.html',
   styleUrl: './category-search.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // Use None encapsulation to allow easier global style overrides by consumers
-  // Alternatively, use CSS custom properties extensively for customization points.
-  // Using None is simpler but requires consumer care to avoid style collisions.
-  // encapsulation: ViewEncapsulation.None,
 })
 export class CategorySearchComponent<T extends SearchDataItem>
   implements OnInit, OnDestroy
 {
-  constructor(private cdr: ChangeDetectorRef, private elementRef: ElementRef) {
-    // Constructor logic if needed
-  }
+  constructor(private cdr: ChangeDetectorRef, private elementRef: ElementRef) {}
 
   // --- CORE INPUTS ---
-  @Input() data: T[] = []; // Data source
-  @Input({ required: true }) trackByIdField!: keyof T; // Unique identifier field
-  @Input({ required: true }) nameField!: keyof T; // Primary display/search field
-  @Input({ required: true }) categoryField!: keyof T; // Field to group/categorize by
-  @Input() friendlyIdField: keyof T | null = null; // Optional secondary search field
+  @Input() data: T[] = [];
+  @Input() searchResults: T[] | null = null;
+  @Input({ required: true }) trackByIdField!: keyof T;
+  @Input({ required: true }) nameField!: keyof T;
+  @Input({ required: true }) categoryField!: keyof T;
+  @Input() friendlyIdField: keyof T | null = null;
 
   // --- CONFIGURATION INPUTS ---
   @Input() placeholder: string = 'Search...';
   @Input() debounceMs: number = 300;
-  @Input() minFriendlyIdSearchLength: number = 3;
-  @Input() resultsBatchSize: number = 5; // Initial items shown per category
-  @Input() initialDropdownState: 'closed' | 'openOnFocus' = 'openOnFocus'; // Control initial visibility behavior
-  @Input() closeOnItemSelect: boolean = true; // Close dropdown when an item is selected
-  @Input() closeOnNavigate: boolean = true; // Close dropdown when navigation is triggered
+  @Input() resultsBatchSize: number = 5;
+  @Input() initialDropdownState: 'closed' | 'openOnFocus' = 'openOnFocus';
+  @Input() closeOnItemSelect: boolean = true;
+  @Input() closeOnNavigate: boolean = true;
 
   // --- RECENT SEARCH CONFIGURATION ---
-  @Input() enableRecentSearches: boolean = true; // Feature toggle
+  @Input() enableRecentSearches: boolean = true;
   @Input() maxRecentSearches: number = 5;
   @Input() recentSearchesKey: string = 'ngx_category_search_recent';
 
@@ -76,26 +70,26 @@ export class CategorySearchComponent<T extends SearchDataItem>
   @Input() recentSearchesLabel: string = 'Recent Searches';
   @Input() noRecentSearchesLabel: string = 'No recent searches.';
   @Input() noResultsLabel: string = 'No results found for';
-  @Input() showAllResultsLabel: string = 'Show all'; // Prefix for bottom button
+  @Input() showAllResultsLabel: string = 'Show all';
   @Input() showMoreLabel: string = 'Show more';
-  @Input() showAllCategoryLabel: string = 'Show all'; // Prefix for category header link
+  @Input() showAllCategoryLabel: string = 'Show all';
 
   // --- FEATURE TOGGLE INPUTS ---
-  @Input() showBottomShowAllButton: boolean = true; // Toggle bottom button visibility
-  @Input() showCategoryShowAllLink: boolean = true; // Toggle category header "Show all" link
-  @Input() showCategoryShowMoreLink: boolean = true; // Toggle category header "Show more" link
-  @Input() showInitialCategories: boolean = true; // Toggle initial category chiclets
-  @Input() showResultCategories: boolean = true; // Toggle result category chiclets
-  @Input() hideAllChicletInitial: boolean = true; // Hide 'All' only on initial view
+  @Input() showBottomShowAllButton: boolean = true;
+  @Input() showCategoryShowAllLink: boolean = true;
+  @Input() showCategoryShowMoreLink: boolean = true;
+  @Input() showInitialCategories: boolean = true;
+  @Input() showResultCategories: boolean = true;
+  @Input() hideAllChicletInitial: boolean = true;
 
   // --- CUSTOM TEMPLATE INPUTS ---
-  @Input() inputPrefixTemplate: TemplateRef<any> | null = null; // Before input field
-  @Input() inputSuffixTemplate: TemplateRef<any> | null = null; // After input field (e.g., custom icons)
+  @Input() inputPrefixTemplate: TemplateRef<any> | null = null;
+  @Input() inputSuffixTemplate: TemplateRef<any> | null = null;
   @Input() resultItemTemplate: TemplateRef<{
     $implicit: T;
     term: string;
-  }> | null = null; // Passes item and current term
-  @Input() recentItemTemplate: TemplateRef<{ $implicit: string }> | null = null; // Passes recent search term string
+  }> | null = null;
+  @Input() recentItemTemplate: TemplateRef<{ $implicit: string }> | null = null;
   @Input() chicletTemplate: TemplateRef<{
     $implicit: {
       category: string;
@@ -103,27 +97,28 @@ export class CategorySearchComponent<T extends SearchDataItem>
       isActive: boolean;
       type: 'initial' | 'results';
     };
-  }> | null = null; // Passes context
+  }> | null = null;
   @Input() categoryHeaderTemplate: TemplateRef<{
     $implicit: { category: string; count: number };
     actions?: TemplateRef<any>;
-  }> | null = null; // Passes category, count, optional default actions template
+  }> | null = null;
   @Input() noResultsTemplate: TemplateRef<{ $implicit: string }> | null = null;
   @Input() loadingTemplate: TemplateRef<any> | null = null;
 
-  // --- OUTPUTS (User Actions / Events) ---
-  @Output() itemSelected = new EventEmitter<T>(); // User clicked/selected a result item
-  @Output() recentSearchSelected = new EventEmitter<string>(); // User clicked a recent search term
-  @Output() categorySelected = new EventEmitter<string>(); // User clicked a category chiclet (results view)
-  @Output() showMoreClicked = new EventEmitter<string>(); // User clicked 'Show more' in a category header
+  // --- OUTPUTS ---
+  @Output() searchRequested = new EventEmitter<string>();
+  @Output() itemSelected = new EventEmitter<T>();
+  @Output() recentSearchSelected = new EventEmitter<string>();
+  @Output() categorySelected = new EventEmitter<string>();
+  @Output() showMoreClicked = new EventEmitter<string>();
   @Output() navigateToCategory = new EventEmitter<{
     term: string;
     category: string;
-  }>(); // User clicked 'Show all [count]' in category header
-  @Output() navigateToAll = new EventEmitter<{ term: string }>(); // User clicked the bottom 'Show all results' button
-  @Output() searchCleared = new EventEmitter<void>(); // User clicked the clear ('x') button
-  @Output() searchTermChanged = new EventEmitter<string>(); // Debounced search term emitted
-  @Output() dropdownVisibilityChanged = new EventEmitter<boolean>(); // Emits true when opened, false when closed
+  }>();
+  @Output() navigateToAll = new EventEmitter<{ term: string }>();
+  @Output() searchCleared = new EventEmitter<void>();
+  @Output() searchTermChanged = new EventEmitter<string>();
+  @Output() dropdownVisibilityChanged = new EventEmitter<boolean>();
 
   // --- Internal State Properties ---
   searchTerm = new FormControl('');
@@ -133,55 +128,65 @@ export class CategorySearchComponent<T extends SearchDataItem>
 
   initialCategories: CategoryCounts = {};
   recentSearches: string[] = [];
+
   filteredResults: T[] = [];
   groupedResults: GroupedResults<T> = {};
   filteredCategories: CategoryCounts = {};
   visibleCounts: VisibleCounts = {};
 
   private searchSubscription: Subscription | null = null;
-  blurTimeout: any;
-  isInitial = true; // Flag for initial state logic
-
-    /**
-   * Prevents default mousedown behavior and clears the blur timeout.
-   * To be called from (mousedown) handlers in the template.
-   * @param event The DOM MouseEvent
-   */
-    public handleDropdownInteraction(event: MouseEvent): void {
-      event.preventDefault(); // Prevent blur from triggering immediately on some elements
-      clearTimeout(this.blurTimeout); // Clear any pending blur timeout
-    }
+  isInitial = true;
 
   // --- Lifecycle Hooks ---
   ngOnInit(): void {
-    this.isInitial = true; // Set initial flag
+    this.isInitial = true;
     this.activeCategory = this.allCategoryLabel;
     if (this.enableRecentSearches) {
       this.loadRecentSearches();
     }
     if (this.data && this.data.length > 0) {
       this.calculateInitialCategoryCounts();
+    } else {
+      this.initialCategories = { [this.allCategoryLabel]: 0 };
     }
     this.setupSearchDebounce();
-    if (this.initialDropdownState === 'closed') {
-      this.isDropdownVisible = false;
-    }
   }
 
-  // Handle data changes from Input
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['data'] && !changes['data'].firstChange) {
-      // Recalculate initial state if data input changes after init
       this.calculateInitialCategoryCounts();
-      // Optionally, re-run current search if term exists? Or just reset? Let's reset for simplicity.
-      if (this.searchTerm.value) {
-        this.performSearch(this.searchTerm.value);
-      } else {
-        this.resetToInitialState(false); // Don't reload recent searches again
+      if (!this.searchTerm.value) {
+        this.resetToInitialState(false);
       }
       this.cdr.markForCheck();
     }
-    // Update activeCategory label if allCategoryLabel changes
+
+    if (changes['searchResults']) {
+      this.isLoading = false;
+      const newResults = changes['searchResults'].currentValue;
+
+      if (newResults && newResults.length > 0) {
+        this.filteredResults = newResults;
+        this.groupResults();
+        this.calculateFilteredCategoryCounts();
+        this.resetVisibleCounts();
+        this.isInitial = false;
+        if (this.isDropdownVisible) {
+          this.setDropdownVisibility(true);
+        }
+      } else {
+        this.filteredResults = [];
+        this.groupedResults = {};
+        this.filteredCategories = { [this.allCategoryLabel]: 0 };
+        this.visibleCounts = {};
+        this.isInitial = !this.searchTerm.value;
+        if (this.isDropdownVisible) {
+          this.setDropdownVisibility(true);
+        }
+      }
+      this.cdr.markForCheck();
+    }
+
     if (
       changes['allCategoryLabel'] &&
       this.activeCategory !== this.allCategoryLabel &&
@@ -194,202 +199,148 @@ export class CategorySearchComponent<T extends SearchDataItem>
 
   ngOnDestroy(): void {
     this.searchSubscription?.unsubscribe();
-    clearTimeout(this.blurTimeout);
   }
 
-  // --- Internal Visibility Control ---
   private setDropdownVisibility(visible: boolean): void {
     if (this.isDropdownVisible !== visible) {
       this.isDropdownVisible = visible;
-      this.dropdownVisibilityChanged.emit(visible); // Emit event
+      this.dropdownVisibilityChanged.emit(visible);
       this.cdr.markForCheck();
     }
   }
 
-  // --- Event Handlers (Internal Dropdown Logic) ---
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event): void {
     if (!this.elementRef.nativeElement.contains(event.target as Node)) {
       if (this.isDropdownVisible) {
-        this.setDropdownVisibility(false); // Use setter
-        if (this.searchTerm.value) {
-          this.searchTerm.setValue(''); // Triggers reset via subscription
-        }
+        this.setDropdownVisibility(false);
+      }
+      // *** ADDED: Clear search term on outside click ***
+      if (this.searchTerm.value) {
+          this.searchTerm.setValue(''); // This triggers valueChanges -> resetToInitialState
+          this.searchCleared.emit(); // Optionally emit clear event
       }
     }
   }
 
   onFocus(): void {
-    clearTimeout(this.blurTimeout);
-    // Only open on focus if configured or if results exist
-    if (
-      this.initialDropdownState === 'openOnFocus' ||
-      this.filteredResults.length > 0 ||
-      !this.searchTerm.value
-    ) {
-      if (!this.searchTerm.value && this.isInitial) {
-        this.calculateInitialCategoryCounts(); // Ensure calculated on first focus
-      }
-      this.setDropdownVisibility(true); // Use setter
-    }
+    this.setDropdownVisibility(true);
     if (!this.searchTerm.value) {
       this.resetToInitialState();
-    }
-  }
-
-  onBlur(): void {
-    this.blurTimeout = setTimeout(() => {
-      if (this.isDropdownVisible) {
-        this.setDropdownVisibility(false); // Use setter
-      }
-    }, 150);
-  }
-
-  clearSearch(event?: MouseEvent): void {
-    clearTimeout(this.blurTimeout); // <-- Add timeout clear
-    if (event) {
-       event.stopPropagation(); // Keep stopping propagation if needed
-    }
-    this.searchTerm.setValue('');
-    this.searchCleared.emit();
-    this.setDropdownVisibility(true); // Keep open
-  }
-
-  // --- Event Handlers (User Interaction -> Output Events) ---
-
-  selectCategory(category: string, event?: MouseEvent): void {
-    clearTimeout(this.blurTimeout);
-    if (event) event.stopPropagation();
-
-    if (this.activeCategory === category) return;
-
-    this.activeCategory = category;
-    // Emit only if category selected in results view (not initial)
-    if (this.searchTerm.value) {
-      this.categorySelected.emit(category);
-    }
-
-    if (category === this.allCategoryLabel) {
-      this.resetVisibleCounts();
     }
     this.cdr.markForCheck();
   }
 
-  selectRecentSearch(term: string, event?: Event): void {
-    clearTimeout(this.blurTimeout);
-    if (event) event.stopPropagation();
-    this.searchTerm.setValue(term);
-    this.recentSearchSelected.emit(term); // Emit recent selected event
+  onBlur(): void {}
+
+  clearSearch(event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.searchTerm.setValue('');
+    this.searchCleared.emit();
     this.setDropdownVisibility(true);
-    // Search happens via subscription
+    this.elementRef.nativeElement.querySelector('input')?.focus();
+  }
+
+  selectCategory(category: string, event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    if (this.activeCategory === category) return;
+
+    this.activeCategory = category;
+    if (!this.isInitial) {
+      this.categorySelected.emit(category);
+    }
+    if (category === this.allCategoryLabel) {
+      this.resetVisibleCounts();
+    }
+    this.setDropdownVisibility(true);
+    this.cdr.markForCheck();
+  }
+
+  selectRecentSearch(term: string, event?: Event): void {
+    if (event) event.stopPropagation();
+
+    this.searchTerm.setValue(term);
+    this.recentSearchSelected.emit(term);
+    this.setDropdownVisibility(true);
+    this.elementRef.nativeElement.querySelector('input')?.focus();
   }
 
   onItemSelected(item: T, event?: Event): void {
-    clearTimeout(this.blurTimeout);
     if (event) event.stopPropagation();
     this.itemSelected.emit(item);
-    if (this.closeOnItemSelect) {
-      this.setDropdownVisibility(false);
-    }
+    this.setDropdownVisibility(true);
+    this.elementRef.nativeElement.querySelector('input')?.focus();
   }
 
   onShowMore(categoryKey: CategoryKey, event: MouseEvent): void {
-    clearTimeout(this.blurTimeout);
     event.stopPropagation();
     const currentGroup = this.groupedResults[categoryKey];
     if (currentGroup) {
       this.visibleCounts[categoryKey] = currentGroup.length;
       if (this.activeCategory !== categoryKey) {
-        this.activeCategory = categoryKey; // Activate category when showing all its items
-        this.categorySelected.emit(categoryKey); // Emit selection
+        this.activeCategory = categoryKey;
+        this.categorySelected.emit(categoryKey);
       }
-      this.showMoreClicked.emit(categoryKey); // Emit show more event
+      this.showMoreClicked.emit(categoryKey);
+      this.setDropdownVisibility(true);
       this.cdr.markForCheck();
     }
   }
 
-  onNavigateToCategorySearch(
-    categoryKey: CategoryKey,
-    event: MouseEvent
-  ): void {
-    clearTimeout(this.blurTimeout);
+  onNavigateToCategorySearch(categoryKey: CategoryKey, event: MouseEvent): void {
     event.stopPropagation();
     const term = this.searchTerm.value || '';
     this.navigateToCategory.emit({ term, category: categoryKey });
-    if (this.closeOnNavigate) {
-      this.setDropdownVisibility(false);
-    }
+    this.setDropdownVisibility(true);
+    this.elementRef.nativeElement.querySelector('input')?.focus();
   }
 
   onNavigateToAllResultsPage(event: MouseEvent): void {
-    clearTimeout(this.blurTimeout);
     event.stopPropagation();
     const term = this.searchTerm.value || '';
     this.navigateToAll.emit({ term });
-    if (this.closeOnNavigate) {
-      this.setDropdownVisibility(false);
-    }
+    this.setDropdownVisibility(true);
+    this.elementRef.nativeElement.querySelector('input')?.focus();
   }
-
-  // --- Internal Data Processing Logic ---
 
   private setupSearchDebounce(): void {
     this.searchSubscription = this.searchTerm.valueChanges
       .pipe(
+        tap((term) => {
+          this.searchTermChanged.emit(term ?? '');
+          if (term && !this.isDropdownVisible) {
+            this.setDropdownVisibility(true);
+          }
+        }),
         debounceTime(this.debounceMs),
         distinctUntilChanged(),
         tap((term) => {
-          this.isInitial = !term; // Update initial flag
           this.isLoading = !!term;
-          this.searchTermChanged.emit(term ?? '');
+          this.isInitial = !term;
           this.cdr.markForCheck();
         })
       )
       .subscribe((term) => {
-        if (term) {
-          // Only perform search if term is not empty
-          this.performSearch(term);
+        const trimmedTerm = term?.trim() ?? '';
+        if (trimmedTerm) {
+          if (this.enableRecentSearches) {
+            this.addRecentSearch(trimmedTerm);
+          }
+          this.searchRequested.emit(trimmedTerm);
         } else {
-          // If term is empty, reset
+          this.isLoading = false;
           this.resetToInitialState();
+          if (
+            document.activeElement ===
+            this.elementRef.nativeElement.querySelector('input')
+          ) {
+            this.setDropdownVisibility(true);
+          }
+          this.cdr.markForCheck();
         }
-        this.isLoading = false;
-        this.cdr.markForCheck();
       });
-  }
-
-  private performSearch(term: string): void {
-    const searchTermTrimmed = term.trim(); // Already checked not empty
-
-    const escapedTerm = escapeRegex(searchTermTrimmed);
-    const nameSearchRegex = new RegExp('\\b' + escapedTerm + '\\b', 'i');
-    const idSearchRegex = new RegExp(escapedTerm, 'i');
-
-    this.filteredResults = this.data.filter((item) => {
-      const nameValue = (item[this.nameField] as string | undefined) ?? '';
-      const nameMatches = nameSearchRegex.test(nameValue);
-      let idMatches = false;
-      if (
-        this.friendlyIdField &&
-        searchTermTrimmed.length >= this.minFriendlyIdSearchLength
-      ) {
-        const friendlyIdValue =
-          (item[this.friendlyIdField] as string | undefined) ?? '';
-        idMatches = idSearchRegex.test(friendlyIdValue);
-      }
-      return nameMatches || idMatches;
-    });
-
-    this.groupResults();
-    this.calculateFilteredCategoryCounts();
-    this.resetVisibleCounts();
-    this.activeCategory = this.allCategoryLabel;
-    this.setDropdownVisibility(true); // Ensure dropdown visible
-
-    // Add to recent searches only if feature enabled
-    if (this.enableRecentSearches && term) {
-      this.addRecentSearch(term);
-    }
   }
 
   private resetToInitialState(reloadRecent = true): void {
@@ -398,12 +349,15 @@ export class CategorySearchComponent<T extends SearchDataItem>
     this.filteredCategories = {};
     this.visibleCounts = {};
     this.activeCategory = this.allCategoryLabel;
+    this.isLoading = false;
+
     this.calculateInitialCategoryCounts();
+
     if (this.enableRecentSearches && reloadRecent) {
       this.loadRecentSearches();
     }
-    this.isInitial = true; // Back to initial state
-    // Visibility depends on focus state
+    this.isInitial = true;
+    this.cdr.markForCheck();
   }
 
   private calculateInitialCategoryCounts(): void {
@@ -427,6 +381,10 @@ export class CategorySearchComponent<T extends SearchDataItem>
   private calculateFilteredCategoryCounts(): void {
     const counts: CategoryCounts = {};
     let total = 0;
+    if (!this.filteredResults) {
+      this.filteredCategories = { [this.allCategoryLabel]: 0 };
+      return;
+    }
     for (const item of this.filteredResults) {
       const category =
         (item[this.categoryField] as CategoryKey | undefined) ??
@@ -439,8 +397,11 @@ export class CategorySearchComponent<T extends SearchDataItem>
   }
 
   private groupResults(): void {
-    // Logic remains the same, relies on categoryField
     const groups: GroupedResults<T> = {};
+    if (!this.filteredResults) {
+      this.groupedResults = {};
+      return;
+    }
     for (const item of this.filteredResults) {
       const category =
         (item[this.categoryField] as CategoryKey | undefined) ??
@@ -461,161 +422,144 @@ export class CategorySearchComponent<T extends SearchDataItem>
     this.visibleCounts = newCounts;
   }
 
-  // --- Recent Searches (Internal logic uses config Inputs) ---
-  /**
-   * Loads recent search terms from localStorage using the configured key.
-   * Handles potential errors during parsing.
-   */
   private loadRecentSearches(): void {
-    // Only execute if the feature is enabled
     if (!this.enableRecentSearches) {
       this.recentSearches = [];
       return;
     }
     try {
-      // Use the configurable key from Input property
       const storedSearches = localStorage.getItem(this.recentSearchesKey);
+      console.log(
+        `[NCS] Loading recent searches from key "${this.recentSearchesKey}":`,
+        storedSearches
+      );
       this.recentSearches = storedSearches ? JSON.parse(storedSearches) : [];
+      console.log(`[NCS] Parsed recent searches:`, this.recentSearches);
     } catch (e) {
       console.error(
-        `Error loading recent searches from localStorage (key: ${this.recentSearchesKey}):`,
+        `[NCS] Error loading recent searches (key: ${this.recentSearchesKey}):`,
         e
       );
-      this.recentSearches = []; // Reset to empty array on error
+      this.recentSearches = [];
     }
   }
-  /**
-   * Saves the current list of recent searches to localStorage using the configured key.
-   * Handles potential errors during stringification or storage limits.
-   */
+
   private saveRecentSearches(): void {
-    // Only execute if the feature is enabled
-    if (!this.enableRecentSearches) {
-      return;
-    }
+    if (!this.enableRecentSearches) return;
     try {
-      // Use the configurable key from Input property
-      localStorage.setItem(
-        this.recentSearchesKey,
-        JSON.stringify(this.recentSearches)
+      const searchesToSave = JSON.stringify(this.recentSearches);
+      console.log(
+        `[NCS] Saving recent searches to key "${this.recentSearchesKey}":`,
+        searchesToSave
       );
+      localStorage.setItem(this.recentSearchesKey, searchesToSave);
     } catch (e) {
       console.error(
-        `Error saving recent searches to localStorage (key: ${this.recentSearchesKey}):`,
+        `[NCS] Error saving recent searches (key: ${this.recentSearchesKey}):`,
         e
       );
-      // Decide how to handle storage errors (e.g., quota exceeded) - logging might be sufficient
     }
   }
-  /**
-   * Adds a new search term to the beginning of the recent searches list.
-   * Ensures uniqueness (case-insensitive) and trims whitespace.
-   * Limits the list size based on the `maxRecentSearches` input.
-   * Saves the updated list to localStorage.
-   * @param term The search term to add.
-   */
+
   private addRecentSearch(term: string): void {
-    // Only execute if the feature is enabled
-    if (!this.enableRecentSearches) {
-      return;
-    }
-
+    if (!this.enableRecentSearches) return;
     const trimmedTerm = term.trim();
-    if (!trimmedTerm) return; // Don't add empty terms
+    if (!trimmedTerm) return;
 
-    // Remove existing instance (case-insensitive) to move it to the top
+    console.log(`[NCS] Attempting to add recent search: "${trimmedTerm}"`);
+    console.log(`[NCS] Current recent searches (before add):`, [
+      ...this.recentSearches,
+    ]);
+
+    const initialLength = this.recentSearches.length;
     this.recentSearches = this.recentSearches.filter(
       (s) => s.toLowerCase() !== trimmedTerm.toLowerCase()
     );
-
-    // Add the new term to the beginning
-    this.recentSearches.unshift(trimmedTerm);
-
-    // Limit the number of recent searches using the configurable limit from Input
-    if (this.recentSearches.length > this.maxRecentSearches) {
-      this.recentSearches = this.recentSearches.slice(
-        0,
-        this.maxRecentSearches
-      ); // More robust slicing
+    if (this.recentSearches.length < initialLength) {
+      console.log(`[NCS] Removed existing instance of "${trimmedTerm}"`);
     }
 
-    // Save the updated list
+    this.recentSearches.unshift(trimmedTerm);
+    console.log(`[NCS] Added "${trimmedTerm}" to beginning`);
+
+    if (this.recentSearches.length > this.maxRecentSearches) {
+      this.recentSearches = this.recentSearches.slice(0, this.maxRecentSearches);
+      console.log(
+        `[NCS] Trimmed recent searches to max length: ${this.maxRecentSearches}`
+      );
+    }
+    console.log(`[NCS] Current recent searches (after add/trim):`, [
+      ...this.recentSearches,
+    ]);
+
     this.saveRecentSearches();
+    this.cdr.markForCheck();
   }
 
-  // --- Template Helpers (Adapted) ---
-  /**
-   * Gets the keys (category names) from the grouped results, sorted alphabetically.
-   * Used for iterating through the result groups in the template.
-   * @returns An array of sorted category key strings.
-   */
   getGroupedResultKeys(): CategoryKey[] {
-    // Sort keys alphabetically for consistent display order
     return Object.keys(this.groupedResults).sort((a, b) => a.localeCompare(b));
   }
+
   getCurrentCategories(): string[] {
-    // ... logic adjusted slightly ...
     const categoriesToShow = this.isInitial
       ? this.initialCategories
       : this.filteredCategories;
-    const keys = Object.keys(categoriesToShow).filter(
-      (k) => k !== this.allCategoryLabel
-    );
+
+    const keys = categoriesToShow
+      ? Object.keys(categoriesToShow).filter(
+          (k) => k !== this.allCategoryLabel
+        )
+      : [];
+
     keys.sort((a, b) => a.localeCompare(b));
-    // Add 'All' based on current view (results or initial with hidden 'All')
-    if (!this.isInitial || (this.isInitial && !this.hideAllChicletInitial)) {
-      if (categoriesToShow[this.allCategoryLabel] > 0 || this.isInitial) {
-        // Show 'All' if results exist or if initial (and not hidden)
+
+    if (
+      !this.isInitial ||
+      (this.isInitial && !this.hideAllChicletInitial)
+    ) {
+      if (
+        (categoriesToShow &&
+          categoriesToShow[this.allCategoryLabel] > 0) ||
+        this.isInitial
+      ) {
         keys.unshift(this.allCategoryLabel);
       }
     }
     return keys;
   }
+
   getCategoryCount(category: string): number {
     const counts = this.isInitial
       ? this.initialCategories
       : this.filteredCategories;
-    return counts[category] ?? 0;
+    return counts?.[category] ?? 0;
   }
-  /**
-   * Returns a slice of results for a given category based on the current visible count.
-   * Uses the `resultsBatchSize` input for the initial/default count.
-   * @param categoryKey The category identifier string.
-   * @returns An array of data items (type T) to be displayed for the category.
-   */
+
   getVisibleResultsForCategory(categoryKey: CategoryKey): T[] {
     const results = this.groupedResults[categoryKey] ?? [];
-    // Use the input 'resultsBatchSize' as the default/initial visible count
     const count = this.visibleCounts[categoryKey] ?? this.resultsBatchSize;
     return results.slice(0, count);
   }
-  /**
-   * Returns the total number of filtered results within a specific category.
-   * @param categoryKey The category identifier string.
-   * @returns The total count of items in that category group.
-   */
+
   getTotalResultsForCategory(categoryKey: CategoryKey): number {
-    return this.groupedResults[categoryKey]?.length ?? 0; // Use optional chaining and nullish coalescing
+    return this.groupedResults[categoryKey]?.length ?? 0;
   }
+
   shouldShowMoreLink(categoryKey: CategoryKey): boolean {
-    // Check feature toggle first
     if (!this.showCategoryShowMoreLink) return false;
-    // Logic remains the same
     const total = this.getTotalResultsForCategory(categoryKey);
     const visible = this.visibleCounts[categoryKey] ?? this.resultsBatchSize;
     return total > visible;
   }
+
   shouldShowCategoryShowAllLink(categoryKey: CategoryKey): boolean {
-    // Check feature toggle first
     if (!this.showCategoryShowAllLink) return false;
-    // Logic remains the same
     return this.getTotalResultsForCategory(categoryKey) > this.resultsBatchSize;
   }
 
-  // --- TrackBy Functions (Adapted) ---
   trackItemById(index: number, item: T): any {
     return item?.[this.trackByIdField];
-  } // Add safe navigation
+  }
   trackByTerm(index: number, term: string): string {
     return term;
   }
