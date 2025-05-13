@@ -15,9 +15,11 @@ import {
   ElementRef,
 } from '@angular/core';
 import { ReactiveFormsModule, FormControl } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser'; // Import DomSanitizer and SafeHtml
 import { Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, tap } from 'rxjs/operators';
 import { HighlightPipe } from '../../pipes/highlight.pipe'; // Adjust path as needed
+import { MultiWordHighlightPipe } from '../../pipes/multi-word-highlight.pipe'; // Add this line
 
 // --- Types ---
 export type SearchDataItem = Record<string, any>;
@@ -34,7 +36,7 @@ function escapeRegex(s: string): string {
 @Component({
   selector: 'ncs-category-search',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, HighlightPipe],
+  imports: [CommonModule, ReactiveFormsModule, HighlightPipe, MultiWordHighlightPipe], // Add MultiWordHighlightPipe here
   templateUrl: './category-search.component.html',
   styleUrl: './category-search.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,10 +44,10 @@ function escapeRegex(s: string): string {
 export class CategorySearchComponent<T extends SearchDataItem>
   implements OnInit, OnDestroy
 {
-  constructor(private cdr: ChangeDetectorRef, private elementRef: ElementRef) {}
+  constructor(private cdr: ChangeDetectorRef, private elementRef: ElementRef, private sanitizer: DomSanitizer) {} // Inject DomSanitizer
 
   // --- CORE INPUTS ---
-  @Input() data: T[] = [];
+  @Input() data: T[] | Record<CategoryKey, number> | null = null; // Modified type
   @Input() searchResults: T[] | null = null;
   @Input({ required: true }) trackByIdField!: keyof T;
   @Input({ required: true }) nameField!: keyof T;
@@ -56,6 +58,7 @@ export class CategorySearchComponent<T extends SearchDataItem>
   @Input() placeholder: string = 'Search...';
   @Input() debounceMs: number = 300;
   @Input() resultsBatchSize: number = 5;
+  @Input() minSearchLength: number = 1; // New Input: Minimum characters to trigger search
   @Input() initialDropdownState: 'closed' | 'openOnFocus' = 'openOnFocus';
   @Input() closeOnItemSelect: boolean = true;
   @Input() closeOnNavigate: boolean = true;
@@ -64,6 +67,10 @@ export class CategorySearchComponent<T extends SearchDataItem>
   @Input() enableRecentSearches: boolean = true;
   @Input() maxRecentSearches: number = 5;
   @Input() recentSearchesKey: string = 'ngx_category_search_recent';
+
+  // --- "SEARCH FOR TERM" LINE CONFIGURATION ---
+  @Input() showSearchForTermLine: boolean = false;
+  @Input() searchForTermFormat: string = 'Search for {term}';
 
   // --- UI LABEL INPUTS ---
   @Input() allCategoryLabel: string = 'All';
@@ -81,6 +88,7 @@ export class CategorySearchComponent<T extends SearchDataItem>
   @Input() showInitialCategories: boolean = true;
   @Input() showResultCategories: boolean = true;
   @Input() hideAllChicletInitial: boolean = true;
+  @Input() showChicletContainerBorder: boolean = true;
 
   // --- CUSTOM TEMPLATE INPUTS ---
   @Input() inputPrefixTemplate: TemplateRef<any> | null = null;
@@ -98,11 +106,22 @@ export class CategorySearchComponent<T extends SearchDataItem>
       type: 'initial' | 'results';
     };
   }> | null = null;
+  @Input() chicletContentTemplate: TemplateRef<{
+    $implicit: {
+      category: string;
+      count: number;
+      isActive: boolean;
+      type: 'initial' | 'results';
+    };
+  }> | null = null;
   @Input() categoryHeaderTemplate: TemplateRef<{
     $implicit: { category: string; count: number };
     actions?: TemplateRef<any>;
   }> | null = null;
-  @Input() noResultsTemplate: TemplateRef<{ $implicit: string }> | null = null;
+  @Input() categoryHeaderContentTemplate: TemplateRef<{
+    $implicit: { category: string; count: number };
+  }> | null = null;
+  @Input() noResultsTemplate: TemplateRef<{ $implicit: string, isTermTooShort?: boolean, minSearchLengthVal?: number }> | null = null; // Updated type
   @Input() loadingTemplate: TemplateRef<any> | null = null;
 
   // --- OUTPUTS ---
@@ -119,12 +138,15 @@ export class CategorySearchComponent<T extends SearchDataItem>
   @Output() searchCleared = new EventEmitter<void>();
   @Output() searchTermChanged = new EventEmitter<string>();
   @Output() dropdownVisibilityChanged = new EventEmitter<boolean>();
+  @Output() searchForTermClicked = new EventEmitter<string>();
+  @Output() enterKeyPressed = new EventEmitter<string>(); // New Output
 
   // --- Internal State Properties ---
   searchTerm = new FormControl('');
   isDropdownVisible = false;
   isLoading = false;
   activeCategory!: string;
+  _isTermTooShort = false; // New internal flag
 
   initialCategories: CategoryCounts = {};
   recentSearches: string[] = [];
@@ -144,18 +166,17 @@ export class CategorySearchComponent<T extends SearchDataItem>
     if (this.enableRecentSearches) {
       this.loadRecentSearches();
     }
-    if (this.data && this.data.length > 0) {
-      this.calculateInitialCategoryCounts();
-    } else {
-      this.initialCategories = { [this.allCategoryLabel]: 0 };
-    }
+    // Directly call calculateInitialCategoryCounts. It handles null/empty data.
+    this.calculateInitialCategoryCounts();
     this.setupSearchDebounce();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['data'] && !changes['data'].firstChange) {
-      this.calculateInitialCategoryCounts();
+      this.calculateInitialCategoryCounts(); // Recalculate if data input changes
       if (!this.searchTerm.value) {
+        // If search term is empty, ensure we are in initial state.
+        // resetToInitialState will call calculateInitialCategoryCounts again.
         this.resetToInitialState(false);
       }
       this.cdr.markForCheck();
@@ -305,6 +326,33 @@ export class CategorySearchComponent<T extends SearchDataItem>
     this.elementRef.nativeElement.querySelector('input')?.focus();
   }
 
+  // --- "SEARCH FOR TERM" LINE METHODS ---
+  getFormattedSearchForTermText(): SafeHtml { // Return SafeHtml
+    const term = this.searchTerm.value || '';
+    // The format string might contain simple HTML like <b>{term}</b>
+    // The term itself is plain text.
+    const formattedString = this.searchForTermFormat.replace('{term}', term);
+    return this.sanitizer.bypassSecurityTrustHtml(formattedString);
+  }
+
+  onSearchForTermLineClick(): void {
+    const term = this.searchTerm.value || '';
+    if (term) {
+      this.searchForTermClicked.emit(term);
+      // Optionally, you might want to close the dropdown or perform other actions here
+      // For example, if you want to keep the dropdown open and input focused:
+      // this.setDropdownVisibility(true);
+      // this.elementRef.nativeElement.querySelector('input')?.focus();
+    }
+  }
+
+  // Method to handle Enter key press on the input
+  onInputEnterKey(event: Event): void { // Changed KeyboardEvent to Event
+    event.preventDefault(); // Prevent default browser action for Enter key
+    const term = this.searchTerm.value || '';
+    this.enterKeyPressed.emit(term);
+  }
+
   private setupSearchDebounce(): void {
     this.searchSubscription = this.searchTerm.valueChanges
       .pipe(
@@ -316,22 +364,41 @@ export class CategorySearchComponent<T extends SearchDataItem>
         }),
         debounceTime(this.debounceMs),
         distinctUntilChanged(),
-        tap((term) => {
-          this.isLoading = !!term;
-          this.isInitial = !term;
+        tap((term) => { // This tap is after debounce, before subscribe's main logic
+          const trimmedTerm = term?.trim() ?? '';
+          if (trimmedTerm && trimmedTerm.length >= this.minSearchLength) {
+            this.isLoading = true;
+            this.isInitial = false;
+          } else {
+            this.isLoading = false;
+            this.isInitial = !trimmedTerm; // true if empty, false if present but too short
+          }
           this.cdr.markForCheck();
         })
       )
       .subscribe((term) => {
         const trimmedTerm = term?.trim() ?? '';
-        if (trimmedTerm) {
+        this._isTermTooShort = false; // Reset flag
+
+        if (trimmedTerm && trimmedTerm.length >= this.minSearchLength) {
           if (this.enableRecentSearches) {
             this.addRecentSearch(trimmedTerm);
           }
           this.searchRequested.emit(trimmedTerm);
-        } else {
-          this.isLoading = false;
-          this.resetToInitialState();
+          // isLoading is already true from the tap operator
+        } else if (trimmedTerm && trimmedTerm.length > 0 && trimmedTerm.length < this.minSearchLength) {
+          // Term is present but too short.
+          this._isTermTooShort = true;
+          this.isLoading = false; // Ensure loading is off (already set in tap)
+          this.filteredResults = []; // Clear results
+          this.groupedResults = {};
+          this.filteredCategories = {}; // Clear categories
+          this.visibleCounts = {};
+          // isInitial is false (set in tap), so noResultsTemplate will be shown
+          this.cdr.markForCheck();
+        } else { // Empty term
+          // isLoading is false (set in tap)
+          this.resetToInitialState(); // This sets isInitial = true
           if (
             document.activeElement ===
             this.elementRef.nativeElement.querySelector('input')
@@ -350,8 +417,9 @@ export class CategorySearchComponent<T extends SearchDataItem>
     this.visibleCounts = {};
     this.activeCategory = this.allCategoryLabel;
     this.isLoading = false;
+    this._isTermTooShort = false; // Ensure flag is reset here too
 
-    this.calculateInitialCategoryCounts();
+    this.calculateInitialCategoryCounts(); // This will use the updated logic
 
     if (this.enableRecentSearches && reloadRecent) {
       this.loadRecentSearches();
@@ -361,21 +429,58 @@ export class CategorySearchComponent<T extends SearchDataItem>
   }
 
   private calculateInitialCategoryCounts(): void {
-    if (!this.data || this.data.length === 0) {
+    if (!this.data) {
       this.initialCategories = { [this.allCategoryLabel]: 0 };
+      this.cdr.markForCheck();
       return;
     }
+
     const counts: CategoryCounts = {};
     let total = 0;
-    for (const item of this.data) {
-      const category =
-        (item[this.categoryField] as CategoryKey | undefined) ??
-        'Uncategorized';
-      counts[category] = (counts[category] || 0) + 1;
-      total++;
+
+    if (Array.isArray(this.data)) {
+      // Logic for when data is T[]
+      const dataArray = this.data as T[]; // Cast for type safety within this block
+      if (dataArray.length === 0) {
+        this.initialCategories = { [this.allCategoryLabel]: 0 };
+        this.cdr.markForCheck();
+        return;
+      }
+      for (const item of dataArray) {
+        const category =
+          (item[this.categoryField] as CategoryKey | undefined) ??
+          'Uncategorized';
+        counts[category] = (counts[category] || 0) + 1;
+        total++;
+      }
+    } else if (typeof this.data === 'object' && this.data !== null) {
+      // Logic for when data is Record<CategoryKey, number>
+      const dataAsObject = this.data as Record<CategoryKey, number>; // Cast
+      if (Object.keys(dataAsObject).length === 0) {
+          this.initialCategories = { [this.allCategoryLabel]: 0 };
+          this.cdr.markForCheck();
+          return;
+      }
+      for (const [category, count] of Object.entries(dataAsObject)) {
+        if (typeof count === 'number') {
+          counts[category] = count;
+          total += count;
+        } else {
+          // Handle cases where a value in the object is not a number, if necessary
+          // For now, we'll ignore non-numeric counts for specific categories
+          // but they won't contribute to the 'All' total unless explicitly handled.
+        }
+      }
+    } else {
+      // Should not happen if type is T[] | Record<CategoryKey, number> | null
+      this.initialCategories = { [this.allCategoryLabel]: 0 };
+      this.cdr.markForCheck();
+      return;
     }
+
     counts[this.allCategoryLabel] = total;
     this.initialCategories = counts;
+    this.cdr.markForCheck();
   }
 
   private calculateFilteredCategoryCounts(): void {
@@ -429,17 +534,8 @@ export class CategorySearchComponent<T extends SearchDataItem>
     }
     try {
       const storedSearches = localStorage.getItem(this.recentSearchesKey);
-      console.log(
-        `[NCS] Loading recent searches from key "${this.recentSearchesKey}":`,
-        storedSearches
-      );
       this.recentSearches = storedSearches ? JSON.parse(storedSearches) : [];
-      console.log(`[NCS] Parsed recent searches:`, this.recentSearches);
     } catch (e) {
-      console.error(
-        `[NCS] Error loading recent searches (key: ${this.recentSearchesKey}):`,
-        e
-      );
       this.recentSearches = [];
     }
   }
@@ -448,17 +544,8 @@ export class CategorySearchComponent<T extends SearchDataItem>
     if (!this.enableRecentSearches) return;
     try {
       const searchesToSave = JSON.stringify(this.recentSearches);
-      console.log(
-        `[NCS] Saving recent searches to key "${this.recentSearchesKey}":`,
-        searchesToSave
-      );
       localStorage.setItem(this.recentSearchesKey, searchesToSave);
-    } catch (e) {
-      console.error(
-        `[NCS] Error saving recent searches (key: ${this.recentSearchesKey}):`,
-        e
-      );
-    }
+    } catch (e) {}
   }
 
   private addRecentSearch(term: string): void {
@@ -466,31 +553,16 @@ export class CategorySearchComponent<T extends SearchDataItem>
     const trimmedTerm = term.trim();
     if (!trimmedTerm) return;
 
-    console.log(`[NCS] Attempting to add recent search: "${trimmedTerm}"`);
-    console.log(`[NCS] Current recent searches (before add):`, [
-      ...this.recentSearches,
-    ]);
-
     const initialLength = this.recentSearches.length;
     this.recentSearches = this.recentSearches.filter(
       (s) => s.toLowerCase() !== trimmedTerm.toLowerCase()
     );
-    if (this.recentSearches.length < initialLength) {
-      console.log(`[NCS] Removed existing instance of "${trimmedTerm}"`);
-    }
 
     this.recentSearches.unshift(trimmedTerm);
-    console.log(`[NCS] Added "${trimmedTerm}" to beginning`);
 
     if (this.recentSearches.length > this.maxRecentSearches) {
       this.recentSearches = this.recentSearches.slice(0, this.maxRecentSearches);
-      console.log(
-        `[NCS] Trimmed recent searches to max length: ${this.maxRecentSearches}`
-      );
     }
-    console.log(`[NCS] Current recent searches (after add/trim):`, [
-      ...this.recentSearches,
-    ]);
 
     this.saveRecentSearches();
     this.cdr.markForCheck();

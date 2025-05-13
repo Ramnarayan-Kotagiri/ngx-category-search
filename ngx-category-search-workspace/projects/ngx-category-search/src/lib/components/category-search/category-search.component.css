@@ -168,6 +168,10 @@
     /* Use gap for spacing */
 }
 
+.ncs-chiclet-container.ncs-chiclet-container--no-border {
+    border-bottom: none;
+}
+
 /* Default Chiclet Button Style */
 .ncs-chiclet {
     box-sizing: border-box;
@@ -451,4 +455,23 @@
 .ncs-show-all-results-button:hover {
     background-color: var(--ncs-primary-color);
     color: white;
+}
+
+/* Styling for the "Search for {term}" line */
+.ncs-search-for-term-line {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--ncs-primary-color);
+    font-weight: 500;
+    border-top: 1px solid var(--ncs-separator-color); /* Optional: separator line */
+    border-bottom: 1px solid var(--ncs-separator-color); /* Optional: separator line */
+    margin-bottom: 4px; /* Optional: space before results */
+    transition: background-color 0.15s ease;
+}
+
+.ncs-search-for-term-line:hover,
+.ncs-search-for-term-line:focus {
+    background-color: var(--ncs-hover-bg);
+    text-decoration: underline;
+    outline: none;
 }

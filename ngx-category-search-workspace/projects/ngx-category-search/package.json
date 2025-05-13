@@ -1,8 +1,11 @@
 {
   "name": "@r-ko/ngx-category-search",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An Angular component for category-based search with dropdown suggestions, inspired by Azure Portal.",
-  "author": { "name": "Ram Kotagiri", "email": "rnrkotagiri@gmail.com" },
+  "author": {
+    "name": "Ram Kotagiri",
+    "email": "rnrkotagiri@gmail.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -10,7 +13,16 @@
   },
   "homepage": "https://ramnarayan-kotagiri.github.io/azure-search/",
   "keywords": [
-     "angular", "search", "component", "dropdown", "category", "filter", "autocomplete", "angular 17", "angular 18", "angular 19"
+    "angular",
+    "search",
+    "component",
+    "dropdown",
+    "category",
+    "filter",
+    "autocomplete",
+    "angular 17",
+    "angular 18",
+    "angular 19"
   ],
   "peerDependencies": {
     "@angular/common": "^17.1.0 || ^18.0.0 || ^19.0.0",

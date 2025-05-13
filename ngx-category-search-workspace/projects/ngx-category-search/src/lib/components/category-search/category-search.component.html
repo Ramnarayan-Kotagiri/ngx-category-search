@@ -5,7 +5,7 @@
         <ng-container *ngIf="inputPrefixTemplate" [ngTemplateOutlet]="inputPrefixTemplate"></ng-container>
 
         <input type="text" class="ncs-input" [placeholder]="placeholder" [formControl]="searchTerm" (focus)="onFocus()"
-            (blur)="onBlur()" attr.aria-label="{{ placeholder }}" />
+            (blur)="onBlur()" attr.aria-label="{{ placeholder }}" (keydown.enter)="onInputEnterKey($event)" />
 
         <!-- Default Clear Button -->
         <button *ngIf="searchTerm.value && !inputSuffixTemplate" type="button" class="ncs-clear-button"
@@ -32,6 +32,7 @@
             <ng-container *ngIf="isInitial">
                 <!-- Initial Category Chiclets -->
                 <div class="ncs-chiclet-container"
+                    [class.ncs-chiclet-container--no-border]="!showChicletContainerBorder"
                     *ngIf="showInitialCategories && getCurrentCategories().length > (hideAllChicletInitial ? 1 : 0)">
                     <ng-container *ngFor="let category of getCurrentCategories(); trackBy: trackByCategory">
                         <ng-container *ngIf="!(hideAllChicletInitial && category === allCategoryLabel)">
@@ -44,7 +45,12 @@
 
                 <!-- Recent Searches -->
                 <div class="ncs-section ncs-recent-searches" *ngIf="enableRecentSearches">
-                    <h3 class="ncs-section-heading">{{ recentSearchesLabel }}</h3>
+                    <!-- Apply category header structure for the Recent Searches title -->
+                    <div class="ncs-category-header-row">
+                        <h3 class="ncs-section-heading ncs-category-heading">{{ recentSearchesLabel }}</h3>
+                        <span class="ncs-header-separator"></span>
+                        <!-- No actions div needed here as recent searches typically don't have header actions like "show more" -->
+                    </div>
                     <ul *ngIf="recentSearches.length > 0; else noRecentItems" class="ncs-recent-list">
                         <li *ngFor="let term of recentSearches; trackBy: trackByTerm" class="ncs-recent-item"
                             (mousedown)="selectRecentSearch(term, $event)"
@@ -65,12 +71,25 @@
             <!-- Search Results View (With Search Term) -->
             <ng-container *ngIf="!isInitial">
                 <!-- Result Category Chiclets -->
-                <div class="ncs-chiclet-container" *ngIf="showResultCategories && getCurrentCategories().length > 0">
+                <div class="ncs-chiclet-container" 
+                    [class.ncs-chiclet-container--no-border]="!showChicletContainerBorder"
+                    *ngIf="showResultCategories && getCurrentCategories().length > 0">
                     <ng-container *ngFor="let category of getCurrentCategories(); trackBy: trackByCategory">
                         <!-- Use Custom Chiclet Template or Default -->
                         <ng-container
                             *ngTemplateOutlet="chicletTemplate || defaultChiclet; context: {$implicit: {category: category, count: getCategoryCount(category), isActive: activeCategory === category, type: 'results'}}"></ng-container>
                     </ng-container>
+                </div>
+
+                <!-- "Search for {term}" Line -->
+                <div *ngIf="showSearchForTermLine && searchTerm.value" 
+                     class="ncs-search-for-term-line"
+                     (mousedown)="onSearchForTermLineClick()"
+                     (keydown.enter)="onSearchForTermLineClick()"
+                     (keydown.space)="onSearchForTermLineClick()"
+                     tabindex="0"
+                     role="button"
+                     [innerHTML]="getFormattedSearchForTermText()"> <!-- Changed to use [innerHTML] -->
                 </div>
 
                 <!-- Results Area -->
@@ -128,7 +147,7 @@
                 <ng-template #noResultsFound>
                     <!-- Use Custom No Results Template or Default -->
                     <ng-container
-                        *ngTemplateOutlet="noResultsTemplate || defaultNoResults; context: {$implicit: searchTerm.value || ''}"></ng-container>
+                        *ngTemplateOutlet="noResultsTemplate || defaultNoResults; context: {$implicit: searchTerm.value || '', isTermTooShort: _isTermTooShort, minSearchLengthVal: minSearchLength}"></ng-container>
                 </ng-template>
 
             </ng-container> <!-- End Search Results View -->
@@ -152,9 +171,14 @@
 <ng-template #defaultChiclet let-ctx>
     <button type="button" class="ncs-chiclet" [class.active]="ctx.isActive" [disabled]="ctx.type === 'initial'"
         (mousedown)="selectCategory(ctx.category, $event)" >
-        {{ ctx.category }}
-        <span class="ncs-chiclet-count">({{ ctx.count }})</span>
+        <ng-container *ngTemplateOutlet="chicletContentTemplate || defaultChicletContent; context: {$implicit: ctx}"></ng-container>
     </button>
+</ng-template>
+
+<!-- Default Chiclet Content -->
+<ng-template #defaultChicletContent let-ctx>
+    {{ ctx.category }}
+    <span class="ncs-chiclet-count">({{ ctx.count }})</span>
 </ng-template>
 
 <!-- Default Recent Search Item -->
@@ -167,9 +191,9 @@
     <!-- Icon placeholder - Consumer should provide via template -->
     <!-- <span class="ncs-result-icon">ICON</span> -->
 
-    <span class="ncs-result-friendly-id" *ngIf="friendlyIdField">{{ item[friendlyIdField] | highlight: term }}</span>
+    <span class="ncs-result-friendly-id" *ngIf="friendlyIdField">{{ item[friendlyIdField] | multiWordHighlight: term }}</span>
     <div class="ncs-result-details">
-        <span class="ncs-result-name" [innerHTML]="item[nameField] | highlight: term"></span>
+        <span class="ncs-result-name" [innerHTML]="item[nameField] | multiWordHighlight: term"></span>
         <span class="ncs-result-type">({{ item[categoryField] }})</span>
     </div>
 </ng-template>
@@ -177,7 +201,9 @@
 <!-- Default Category Header -->
 <ng-template #defaultCategoryHeader let-ctx let-actionsTpl="actions">
     <div class="ncs-category-header-row">
-        <h4 class="ncs-section-heading ncs-category-heading">{{ ctx.category }}</h4>
+        <h4 class="ncs-section-heading ncs-category-heading">
+            <ng-container *ngTemplateOutlet="categoryHeaderContentTemplate || defaultCategoryHeaderContent; context: {$implicit: ctx}"></ng-container>
+        </h4>
         <span class="ncs-header-separator"></span>
         <div class="ncs-category-header-actions">
             <!-- Outlet for the default actions (Show more / Show all links) -->
@@ -186,7 +212,13 @@
     </div>
 </ng-template>
 
+<!-- Default Category Header Content -->
+<ng-template #defaultCategoryHeaderContent let-ctx>
+    {{ ctx.category }}
+</ng-template>
+
 <!-- Default No Results Message -->
-<ng-template #defaultNoResults let-term>
-    <p class="ncs-no-results">{{ noResultsLabel }} "{{ term }}".</p>
+<ng-template #defaultNoResults let-term let-isTermTooShort="isTermTooShort" let-minSearchLengthVal="minSearchLengthVal">
+    <p *ngIf="!isTermTooShort" class="ncs-no-results">{{ noResultsLabel }} "{{ term }}".</p>
+    <p *ngIf="isTermTooShort" class="ncs-no-results">Please enter at least {{ minSearchLengthVal }} characters to search.</p>
 </ng-template>
